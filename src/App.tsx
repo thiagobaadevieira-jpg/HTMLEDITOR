@@ -39,7 +39,8 @@ import {
   Link2,
   User,
   AlertTriangle,
-  Upload
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 
 const ICON_COMPONENTS = {
@@ -69,6 +70,8 @@ const DEFAULT_CARD_CONFIG: CardConfig = {
   whatsappIcon: 'MessageCircle',
   instagramIcon: 'Instagram',
   footerBrandName: 'Luxe Directory',
+  socialIconSize: 22,
+  footerIconSize: 18,
 };
 
 // Types
@@ -93,6 +96,8 @@ interface CardConfig {
   footerIconUrl?: string;
   footerLogoUrl?: string;
   footerBrandName?: string;
+  socialIconSize: number;
+  footerIconSize: number;
 }
 
 interface Supplier {
@@ -343,7 +348,7 @@ const SupplierCard: React.FC<{
                 }}
                 title="WhatsApp"
               >
-                {renderIcon(config.whatsappIcon, config.whatsappIconUrl, 22)}
+                {renderIcon(config.whatsappIcon, config.whatsappIconUrl, config.socialIconSize)}
               </a>
               <a 
                 href={`https://instagram.com/${supplier.instagram}`}
@@ -364,7 +369,7 @@ const SupplierCard: React.FC<{
                 }}
                 title="Instagram"
               >
-                {renderIcon(config.instagramIcon, config.instagramIconUrl, 22)}
+                {renderIcon(config.instagramIcon, config.instagramIconUrl, config.socialIconSize)}
               </a>
             </div>
           )}
@@ -400,7 +405,7 @@ const SupplierCard: React.FC<{
           <div className="flex justify-center items-center gap-3 w-full" style={{ color: `${config.iconColor}66` }}>
             <span className="text-[10px] font-bold tracking-tight text-white/30" style={{ fontFamily: 'Arial, sans-serif' }}>#{supplier.numericId}</span>
             <div className="w-1 h-1 rounded-full bg-white/10" />
-            {renderIcon(config.footerIcon, config.footerIconUrl, 18)}
+            {renderIcon(config.footerIcon, config.footerIconUrl, config.footerIconSize)}
           </div>
         </div>
       </div>
@@ -423,6 +428,7 @@ export default function App() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ count: number, names: string[], type: 'import' | 'export' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bulkImageInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -457,6 +463,46 @@ export default function App() {
     }
   };
 
+  const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newSuppliers = [...suppliers];
+    let updatedCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      // Extrair apenas números do nome do arquivo
+      const nameWithoutExt = file.name.split('.').slice(0, -1).join('.');
+      const match = nameWithoutExt.match(/\d+/);
+      
+      if (match) {
+        const idFromFileName = parseInt(match[0]);
+        const supplierIndex = newSuppliers.findIndex(s => s.numericId === idFromFileName);
+        
+        if (supplierIndex !== -1) {
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          
+          newSuppliers[supplierIndex] = {
+            ...newSuppliers[supplierIndex],
+            logoUrl: base64
+          };
+          updatedCount++;
+        }
+      }
+    }
+
+    if (updatedCount > 0) {
+      setSuppliers(newSuppliers);
+    }
+    
+    if (bulkImageInputRef.current) bulkImageInputRef.current.value = '';
+  };
+
   const allCategories = ['Todos', ...categories];
 
   const handleAddCategory = (e: React.FormEvent) => {
@@ -488,12 +534,15 @@ export default function App() {
       let tempLastId = lastNumericId;
 
       data.forEach((row: any) => {
+        // Mapeamento conforme solicitado pelo usuário
         const name = (row['Nome da Loja'] || row['Nome'] || '').toString().trim();
         const instagram = (row['Instagram'] || '').toString().replace('@', '').toLowerCase().trim();
-        const whatsapp = (row['WhatsApp'] || row['Whatsapp'] || '').toString().replace(/\D/g, '');
+        const whatsapp = (row['WhatsApp'] || row['WhatsApp'] || row['Whats'] || row['whats'] || '').toString().replace(/\D/g, '');
         const address = row['Endereço'] || row['Endereco'] || '';
-        const logoUrl = row['URL da imagem de perfil'] || row['URL Imagem'] || row['Logo URL'] || undefined;
-        const category = selectedCategory !== 'Todos' ? selectedCategory : (row['Categoria'] || 'Importado');
+        const category = row['Categoria'] || 'Importado';
+        
+        // Mantemos logoUrl caso exista no arquivo original, mas os 5 pilares são os acima
+        const logoUrl = row['Logo URL'] || row['URL Imagem'] || undefined;
 
         if (!name) return;
 
@@ -528,38 +577,56 @@ export default function App() {
       if (validNewSuppliers.length > 0) {
         setSuppliers(prev => [...validNewSuppliers, ...prev]);
         setLastNumericId(tempLastId);
-        const newCats = Array.from(new Set(validNewSuppliers.map(s => s.category)));
-        setCategories(prev => Array.from(new Set([...prev, ...newCats])));
+        
+        // Criação automática de categorias
+        const newCatsFound = Array.from(new Set(validNewSuppliers.map(s => s.category)));
+        setCategories(prev => {
+          const combined = Array.from(new Set([...prev, ...newCatsFound]));
+          return combined;
+        });
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsBinaryString(file);
   };
 
+  const handleExcelExport = () => {
+    const exportData = filteredSuppliers.map(s => ({
+      'Nome da Loja': s.name,
+      'Instagram': s.instagram,
+      'WhatsApp': s.whatsapp,
+      'Endereço': s.address,
+      'Categoria': s.category
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Fornecedores");
+    XLSX.writeFile(wb, `fornecedores-${selectedCategory.toLowerCase()}.xlsx`);
+  };
+
   const handleDownloadExample = () => {
     const exampleData = [
       {
-        'Nome da Loja': 'Loja Exemplo',
-        'Instagram': 'loja_exemplo',
-        'WhatsApp': '5511999999999',
-        'Endereço': 'Rua Exemplo, 123 - Bairro',
-        'URL da imagem de perfil': 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200',
-        'Categoria': 'Importado'
+        'Nome da Loja': '24K Folheados',
+        'Instagram': '24k_folheados',
+        'WhatsApp': '+55 11 95796-2868',
+        'Endereço': 'Rua 25 de Março, 807',
+        'Categoria': 'Acessórios'
       },
       {
-        'Nome da Loja': 'Moda Premium',
-        'Instagram': 'modapremium',
-        'WhatsApp': '5511888888888',
-        'Endereço': 'Av. Principal, 456',
-        'URL da imagem de perfil': 'https://images.unsplash.com/photo-1470309082958-c64a75f99bf5?w=200',
-        'Categoria': 'Nacional'
+        'Nome da Loja': 'Cereja Folheados',
+        'Instagram': 'cerejafolheados_',
+        'WhatsApp': '+55 11 97582-6780',
+        'Endereço': 'Rua Tiers, 558 - Loja 159 - Térreo',
+        'Categoria': 'Acessórios'
       }
     ];
 
     const ws = XLSX.utils.json_to_sheet(exampleData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Exemplo");
-    XLSX.writeFile(wb, "exemplo_importacao.xlsx");
+    XLSX.writeFile(wb, "exemplo_fornecedores.xlsx");
   };
 
   const handleExport = () => {
@@ -642,10 +709,10 @@ export default function App() {
             ${cardConfig.showIcons ? `
             <div class="social-icons">
               <a href="https://wa.me/${s.whatsapp}" target="_blank" class="icon-circle">
-                ${getIconSvg(cardConfig.whatsappIcon, cardConfig.whatsappIconUrl, 20)}
+                ${getIconSvg(cardConfig.whatsappIcon, cardConfig.whatsappIconUrl, cardConfig.socialIconSize)}
               </a>
               <a href="https://instagram.com/${s.instagram}" target="_blank" class="icon-circle">
-                ${getIconSvg(cardConfig.instagramIcon, cardConfig.instagramIconUrl, 20)}
+                ${getIconSvg(cardConfig.instagramIcon, cardConfig.instagramIconUrl, cardConfig.socialIconSize)}
               </a>
             </div>
             ` : ''}
@@ -660,7 +727,7 @@ export default function App() {
             <div style="display: flex; justify-content: center; align-items: center; gap: 12px; width: 100%; color: ${cardConfig.iconColor}66;">
               <span class="footer-id">#${s.numericId}</span>
               <div style="width: 3px; height: 3px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);"></div>
-              ${getIconSvg(cardConfig.footerIcon, cardConfig.footerIconUrl, 18)}
+              ${getIconSvg(cardConfig.footerIcon, cardConfig.footerIconUrl, cardConfig.footerIconSize)}
             </div>
           </div>
         </div>
@@ -1089,6 +1156,14 @@ export default function App() {
             accept=".xlsx, .xls"
             className="hidden"
           />
+          <input 
+            type="file" 
+            ref={bulkImageInputRef}
+            onChange={handleBulkImageUpload}
+            accept="image/*"
+            multiple
+            className="hidden"
+          />
           <div className="flex flex-col items-end gap-1">
             <button 
               onClick={() => fileInputRef.current?.click()}
@@ -1105,14 +1180,31 @@ export default function App() {
             </button>
           </div>
 
+          <button 
+            onClick={() => bulkImageInputRef.current?.click()}
+            className="flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-white/60 text-xs font-semibold tracking-widest uppercase hover:bg-white/5 transition-all"
+          >
+            <ImageIcon size={16} />
+            Fotos em Massa
+          </button>
+
           {filteredSuppliers.length > 0 && (
-            <button 
-              onClick={handleExport}
-              className="flex items-center gap-2 px-6 py-3 rounded-full border border-gold/30 text-gold text-xs font-semibold tracking-widest uppercase hover:bg-gold/5 transition-all"
-            >
-              <Download size={16} />
-              Exportar HTML
-            </button>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleExcelExport}
+                className="flex items-center gap-2 px-6 py-3 rounded-full border border-gold/30 text-gold text-xs font-semibold tracking-widest uppercase hover:bg-gold/5 transition-all"
+              >
+                <Package size={16} />
+                Exportar Excel
+              </button>
+              <button 
+                onClick={handleExport}
+                className="flex items-center gap-2 px-6 py-3 rounded-full border border-gold/30 text-gold text-xs font-semibold tracking-widest uppercase hover:bg-gold/5 transition-all"
+              >
+                <Download size={16} />
+                Exportar HTML
+              </button>
+            </div>
           )}
           
           <button 
@@ -1541,6 +1633,19 @@ export default function App() {
                 {cardConfig.showIcons && (
                   <>
                     <div className="space-y-3">
+                      <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-white/40">
+                        <label>Tamanho dos Ícones Sociais</label>
+                        <span>{cardConfig.socialIconSize}px</span>
+                      </div>
+                      <input 
+                        type="range" min="12" max="36" 
+                        value={cardConfig.socialIconSize}
+                        onChange={e => setCardConfig({...cardConfig, socialIconSize: parseInt(e.target.value)})}
+                        className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
+                      />
+                    </div>
+
+                    <div className="space-y-3">
                       <label className="text-[10px] uppercase tracking-widest text-white/40">Ícone WhatsApp</label>
                       <div className="flex flex-wrap gap-2">
                         {WHATSAPP_ICONS.map(iconName => {
@@ -1627,6 +1732,19 @@ export default function App() {
                     </div>
                   </>
                 )}
+
+                <div className="space-y-3 pt-4 border-t border-white/5">
+                  <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-white/40">
+                    <label>Tamanho do Ícone Rodapé</label>
+                    <span>{cardConfig.footerIconSize}px</span>
+                  </div>
+                  <input 
+                    type="range" min="10" max="32" 
+                    value={cardConfig.footerIconSize}
+                    onChange={e => setCardConfig({...cardConfig, footerIconSize: parseInt(e.target.value)})}
+                    className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
+                  />
+                </div>
 
                 <div className="space-y-3">
                   <label className="text-[10px] uppercase tracking-widest text-white/40">Ícone Rodapé</label>
