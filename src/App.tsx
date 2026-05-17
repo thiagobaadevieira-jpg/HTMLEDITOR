@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
+import { supabase, uploadLogo, dataUrlToStorageUrl, type DbSupplier, type DbCardConfig } from './lib/supabase';
 import { 
   Instagram, 
   MessageCircle, 
@@ -413,13 +414,93 @@ const SupplierCard: React.FC<{
   );
 };
 
+function dbToSupplier(row: DbSupplier): Supplier {
+  return {
+    id: row.id,
+    numericId: row.numeric_id,
+    name: row.name,
+    handle: row.handle,
+    category: row.category,
+    address: row.address,
+    whatsapp: row.whatsapp,
+    instagram: row.instagram,
+    logo: row.logo,
+    logoUrl: row.logo_url || undefined,
+  }
+}
+
+function dbToCardConfig(row: DbCardConfig): CardConfig {
+  return {
+    borderRadius: row.border_radius,
+    padding: row.padding,
+    backgroundColor: row.background_color,
+    backgroundOpacity: row.background_opacity,
+    accentColor: row.accent_color,
+    iconColor: row.icon_color,
+    logoBorderColor: row.logo_border_color,
+    logoBorderWidth: row.logo_border_width,
+    showLogoRings: row.show_logo_rings,
+    fontFamily: row.font_family as CardConfig['fontFamily'],
+    showIcons: row.show_icons,
+    pageBackgroundColor: row.page_background_color,
+    footerIcon: row.footer_icon,
+    whatsappIcon: row.whatsapp_icon,
+    instagramIcon: row.instagram_icon,
+    whatsappIconUrl: row.whatsapp_icon_url || undefined,
+    instagramIconUrl: row.instagram_icon_url || undefined,
+    footerIconUrl: row.footer_icon_url || undefined,
+    footerLogoUrl: row.footer_logo_url || undefined,
+    footerBrandName: row.footer_brand_name,
+    socialIconSize: row.social_icon_size,
+    footerIconSize: row.footer_icon_size,
+  }
+}
+
+function cardConfigToDb(config: CardConfig): Omit<DbCardConfig, 'id' | 'updated_at'> {
+  return {
+    border_radius: config.borderRadius,
+    padding: config.padding,
+    background_color: config.backgroundColor,
+    background_opacity: config.backgroundOpacity,
+    accent_color: config.accentColor,
+    icon_color: config.iconColor,
+    logo_border_color: config.logoBorderColor,
+    logo_border_width: config.logoBorderWidth,
+    show_logo_rings: config.showLogoRings,
+    font_family: config.fontFamily,
+    show_icons: config.showIcons,
+    page_background_color: config.pageBackgroundColor,
+    footer_icon: config.footerIcon,
+    whatsapp_icon: config.whatsappIcon,
+    instagram_icon: config.instagramIcon,
+    whatsapp_icon_url: config.whatsappIconUrl ?? '',
+    instagram_icon_url: config.instagramIconUrl ?? '',
+    footer_icon_url: config.footerIconUrl ?? '',
+    footer_logo_url: config.footerLogoUrl ?? '',
+    footer_brand_name: config.footerBrandName ?? 'Luxe Directory',
+    social_icon_size: config.socialIconSize,
+    footer_icon_size: config.footerIconSize,
+  }
+}
+
 export default function App() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
-  const [lastNumericId, setLastNumericId] = useState(Math.max(...INITIAL_SUPPLIERS.map(s => s.numericId), 100));
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [configId, setConfigId] = useState<string | null>(null);
+  const configSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'directory' | 'customization'>('directory');
   const [cardConfig, setCardConfig] = useState<CardConfig>(DEFAULT_CARD_CONFIG);
-  const [categories, setCategories] = useState<string[]>(['Moda Feminina', 'Moda Masculina', 'Calçados', 'Acessórios', 'Moda Fitness']);
+  const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -441,6 +522,68 @@ export default function App() {
     logoUrl: '' as string | undefined,
   });
 
+  // Auth state listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginError('');
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+    if (error) setLoginError('E-mail ou senha incorretos.');
+    setLoginLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSuppliers([]);
+    setCategories([]);
+    setCardConfig(DEFAULT_CARD_CONFIG);
+    setLoading(true);
+    isFirstRender.current = true;
+  };
+
+  // Load all data from Supabase on mount
+  useEffect(() => {
+    if (!session) return;
+    async function loadData() {
+      const [suppliersRes, categoriesRes, configRes] = await Promise.all([
+        supabase.from('suppliers').select('*').order('numeric_id', { ascending: false }),
+        supabase.from('categories').select('name').order('name'),
+        supabase.from('card_config').select('*').single(),
+      ]);
+
+      if (suppliersRes.data) setSuppliers(suppliersRes.data.map(dbToSupplier));
+      if (categoriesRes.data) setCategories(categoriesRes.data.map((r: { name: string }) => r.name));
+      if (configRes.data) {
+        setCardConfig(dbToCardConfig(configRes.data));
+        setConfigId(configRes.data.id);
+      }
+      setLoading(false);
+    }
+    loadData();
+  }, [session]);
+
+  // Debounced save of card_config to DB (600ms after last change)
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (!configId) return;
+    if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current);
+    configSaveTimerRef.current = setTimeout(() => {
+      supabase.from('card_config').update(cardConfigToDb(cardConfig)).eq('id', configId);
+    }, 600);
+    return () => { if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current); };
+  }, [cardConfig, configId]);
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -452,65 +595,61 @@ export default function App() {
     }
   };
 
-  const handleConfigImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'whatsappIconUrl' | 'instagramIconUrl' | 'footerIconUrl') => {
+  const handleConfigImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'whatsappIconUrl' | 'instagramIconUrl' | 'footerIconUrl') => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCardConfig(prev => ({ ...prev, [field]: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const ext = file.name.split('.').pop() || 'png';
+    const url = await uploadLogo(file, `icons/${field}-${Date.now()}.${ext}`);
+    if (url) setCardConfig(prev => ({ ...prev, [field]: url }));
   };
 
   const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const newSuppliers = [...suppliers];
+    const updatedSuppliers = [...suppliers];
+    const dbUpdates: Promise<void>[] = [];
     let updatedCount = 0;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      // Extrair apenas números do nome do arquivo
       const nameWithoutExt = file.name.split('.').slice(0, -1).join('.');
       const match = nameWithoutExt.match(/\d+/);
-      
-      if (match) {
-        const idFromFileName = parseInt(match[0]);
-        const supplierIndex = newSuppliers.findIndex(s => s.numericId === idFromFileName);
-        
-        if (supplierIndex !== -1) {
-          const base64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          });
-          
-          newSuppliers[supplierIndex] = {
-            ...newSuppliers[supplierIndex],
-            logoUrl: base64
-          };
-          updatedCount++;
-        }
+      if (!match) continue;
+
+      const idFromFileName = parseInt(match[0]);
+      const idx = updatedSuppliers.findIndex(s => s.numericId === idFromFileName);
+      if (idx === -1) continue;
+
+      const supplier = updatedSuppliers[idx];
+      const ext = file.name.split('.').pop() || 'jpg';
+      const url = await uploadLogo(file, `${supplier.id}.${ext}`);
+      if (url) {
+        updatedSuppliers[idx] = { ...supplier, logoUrl: url };
+        dbUpdates.push(
+          supabase.from('suppliers').update({ logo_url: url }).eq('id', supplier.id).then(() => {})
+        );
+        updatedCount++;
       }
     }
 
     if (updatedCount > 0) {
-      setSuppliers(newSuppliers);
+      setSuppliers(updatedSuppliers);
+      await Promise.all(dbUpdates);
     }
-    
+
     if (bulkImageInputRef.current) bulkImageInputRef.current.value = '';
   };
 
   const allCategories = ['Todos', ...categories];
 
-  const handleAddCategory = (e: React.FormEvent) => {
+  const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newCategoryName && !categories.includes(newCategoryName)) {
-      setCategories([...categories, newCategoryName]);
+      setCategories(prev => [...prev, newCategoryName]);
       setNewCategoryName('');
       setIsAddingCategory(false);
+      await supabase.from('categories').insert({ name: newCategoryName });
     }
   };
 
@@ -519,7 +658,7 @@ export default function App() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       const bstr = evt.target?.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
       const wsname = wb.SheetNames[0];
@@ -530,61 +669,58 @@ export default function App() {
       const existingHandles = new Set(suppliers.map(s => s.instagram?.toLowerCase().trim()).filter(Boolean));
 
       const duplicates: string[] = [];
-      const validNewSuppliers: Supplier[] = [];
-      let tempLastId = lastNumericId;
+      const rowsToInsert: Array<Omit<DbSupplier, 'id' | 'numeric_id' | 'created_at' | 'updated_at'>> = [];
 
       data.forEach((row: any) => {
-        // Mapeamento conforme solicitado pelo usuário
         const name = (row['Nome da Loja'] || row['Nome'] || '').toString().trim();
         const instagram = (row['Instagram'] || '').toString().replace('@', '').toLowerCase().trim();
-        const whatsapp = (row['WhatsApp'] || row['WhatsApp'] || row['Whats'] || row['whats'] || '').toString().replace(/\D/g, '');
+        const whatsapp = (row['WhatsApp'] || row['Whats'] || row['whats'] || '').toString().replace(/\D/g, '');
         const address = row['Endereço'] || row['Endereco'] || '';
         const category = row['Categoria'] || 'Importado';
-        
-        // Mantemos logoUrl caso exista no arquivo original, mas os 5 pilares são os acima
-        const logoUrl = row['Logo URL'] || row['URL Imagem'] || undefined;
+        const logo_url = row['Logo URL'] || row['URL Imagem'] || '';
 
         if (!name) return;
 
         const isDuplicate = existingNames.has(name.toLowerCase()) || (instagram && existingHandles.has(instagram));
+        if (isDuplicate) { duplicates.push(name); return; }
 
-        if (isDuplicate) {
-          duplicates.push(name);
-        } else {
-          tempLastId++;
-          validNewSuppliers.push({
-            id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-            numericId: tempLastId,
-            name,
-            handle: instagram ? `@${instagram}` : '',
-            category,
-            address,
-            whatsapp,
-            instagram,
-            logo: name.charAt(0).toUpperCase() || 'S',
-            logoUrl
-          });
-          // Update sets to catch duplicates within the same file
-          existingNames.add(name.toLowerCase());
-          if (instagram) existingHandles.add(instagram);
-        }
+        rowsToInsert.push({
+          name,
+          handle: instagram ? `@${instagram}` : '',
+          category,
+          address,
+          whatsapp,
+          instagram,
+          logo: name.charAt(0).toUpperCase() || 'S',
+          logo_url,
+        });
+        existingNames.add(name.toLowerCase());
+        if (instagram) existingHandles.add(instagram);
       });
 
       if (duplicates.length > 0) {
         setDuplicateWarning({ count: duplicates.length, names: duplicates.slice(0, 5), type: 'import' });
       }
 
-      if (validNewSuppliers.length > 0) {
-        setSuppliers(prev => [...validNewSuppliers, ...prev]);
-        setLastNumericId(tempLastId);
-        
-        // Criação automática de categorias
-        const newCatsFound = Array.from(new Set(validNewSuppliers.map(s => s.category)));
-        setCategories(prev => {
-          const combined = Array.from(new Set([...prev, ...newCatsFound]));
-          return combined;
-        });
+      if (rowsToInsert.length > 0) {
+        const { data: inserted } = await supabase
+          .from('suppliers')
+          .insert(rowsToInsert)
+          .select();
+
+        if (inserted) {
+          setSuppliers(prev => [...inserted.map(dbToSupplier), ...prev]);
+        }
+
+        const newCatsFound = Array.from(new Set(rowsToInsert.map(r => r.category)));
+        const brandNewCats = newCatsFound.filter(c => !categories.includes(c));
+        if (brandNewCats.length > 0) {
+          await supabase.from('categories')
+            .upsert(brandNewCats.map(name => ({ name })), { onConflict: 'name' });
+          setCategories(prev => Array.from(new Set([...prev, ...brandNewCats])));
+        }
       }
+
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsBinaryString(file);
@@ -987,22 +1123,45 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      setSuppliers(suppliers.map(s => s.id === editingId ? { ...s, ...formData, logo: formData.handle.charAt(1).toUpperCase() || 'S' } : s));
-      setEditingId(null);
-    } else {
-      const nextId = lastNumericId + 1;
-      const newSupplier: Supplier = {
-        id: Date.now().toString(),
-        numericId: nextId,
-        ...formData,
-        logo: formData.handle.charAt(1).toUpperCase() || 'S'
-      };
-      setSuppliers([newSupplier, ...suppliers]);
-      setLastNumericId(nextId);
+    const logoInitial = formData.handle.charAt(1).toUpperCase() || formData.name.charAt(0).toUpperCase() || 'S';
+
+    // If user picked a local file (base64), upload to Storage first
+    let finalLogoUrl = formData.logoUrl ?? '';
+    if (finalLogoUrl.startsWith('data:')) {
+      const path = `${editingId ?? ('new-' + Date.now())}.jpg`;
+      finalLogoUrl = await dataUrlToStorageUrl(finalLogoUrl, path);
     }
+
+    const dbPayload = {
+      name: formData.name,
+      handle: formData.handle,
+      category: formData.category,
+      address: formData.address,
+      whatsapp: formData.whatsapp,
+      instagram: formData.instagram,
+      logo: logoInitial,
+      logo_url: finalLogoUrl,
+    };
+
+    if (editingId) {
+      // Optimistic update
+      setSuppliers(prev => prev.map(s => s.id === editingId
+        ? { ...s, ...dbPayload, logoUrl: finalLogoUrl || undefined }
+        : s
+      ));
+      setEditingId(null);
+      await supabase.from('suppliers').update(dbPayload).eq('id', editingId);
+    } else {
+      const tempId = 'temp-' + Date.now();
+      setSuppliers(prev => [{ id: tempId, numericId: 0, ...dbPayload, logoUrl: finalLogoUrl || undefined }, ...prev]);
+      const { data } = await supabase.from('suppliers').insert(dbPayload).select().single();
+      if (data) {
+        setSuppliers(prev => prev.map(s => s.id === tempId ? dbToSupplier(data) : s));
+      }
+    }
+
     setIsModalOpen(false);
     setFormData({
       name: '',
@@ -1015,9 +1174,10 @@ export default function App() {
     });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Deseja realmente excluir este fornecedor?')) {
-      setSuppliers(suppliers.filter(s => s.id !== id));
+      setSuppliers(prev => prev.filter(s => s.id !== id));
+      await supabase.from('suppliers').delete().eq('id', id);
     }
   };
 
@@ -1064,13 +1224,129 @@ export default function App() {
     }).sort((a, b) => b.numericId - a.numericId);
   }, [suppliers, searchTerm, selectedCategory]);
 
+  const loadingScreen = (
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#050505' }}>
+      <motion.div
+        animate={{ opacity: [0.3, 1, 0.3] }}
+        transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
+        className="text-[10px] uppercase tracking-[0.4em] text-gold/60 font-bold"
+      >
+        Carregando...
+      </motion.div>
+    </div>
+  );
+
+  if (authLoading) return loadingScreen;
+
+  if (!session) return (
+    <div className="min-h-screen flex items-center justify-center px-6 font-sans" style={{ backgroundColor: '#050505' }}>
+      {/* Background glow */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, #C89A62 0%, transparent 70%)' }} />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+        className="relative w-full max-w-md"
+      >
+        {/* Logo / Brand */}
+        <div className="text-center mb-12">
+          <div className="inline-flex w-16 h-16 rounded-full items-center justify-center mb-6 border"
+            style={{ borderColor: '#C89A6240', backgroundColor: '#C89A620d' }}>
+            <ShoppingBag size={28} style={{ color: '#C89A62' }} />
+          </div>
+          <h1 className="text-2xl font-display text-white mb-2 tracking-tight">Acesso Restrito</h1>
+          <p className="text-[11px] uppercase tracking-[0.3em] text-white/30">Diretório de Fornecedores</p>
+        </div>
+
+        {/* Card */}
+        <div className="border border-white/5 rounded-[2rem] p-8 md:p-10" style={{ backgroundColor: '#121212' }}>
+          {/* Top glow line */}
+          <div className="absolute top-0 left-1/4 right-1/4 h-px rounded-full"
+            style={{ background: 'linear-gradient(to right, transparent, #C89A6266, transparent)' }} />
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1">E-mail</label>
+              <input
+                type="email"
+                required
+                autoFocus
+                placeholder="seu@email.com"
+                value={loginEmail}
+                onChange={e => setLoginEmail(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 outline-none text-white placeholder:text-white/10 text-sm transition-colors"
+                style={{ '--tw-ring-color': '#C89A62' } as any}
+                onFocus={e => (e.target.style.borderColor = '#C89A6280')}
+                onBlur={e => (e.target.style.borderColor = '')}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1">Senha</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  placeholder="••••••••"
+                  value={loginPassword}
+                  onChange={e => setLoginPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 pr-12 outline-none text-white placeholder:text-white/10 text-sm"
+                  onFocus={e => (e.target.style.borderColor = '#C89A6280')}
+                  onBlur={e => (e.target.style.borderColor = '')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 transition-colors"
+                >
+                  {showPassword
+                    ? <ExternalLink size={16} />
+                    : <ExternalLink size={16} style={{ opacity: 0.4 }} />}
+                </button>
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {loginError && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex items-center gap-2 text-red-400/80 text-xs px-1"
+                >
+                  <AlertTriangle size={14} />
+                  {loginError}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="w-full py-4 rounded-2xl text-black text-xs font-bold uppercase tracking-[0.2em] transition-all mt-2 disabled:opacity-50"
+              style={{ backgroundColor: '#C89A62', boxShadow: '0 0 30px #C89A6240' }}
+            >
+              {loginLoading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+        </div>
+      </motion.div>
+    </div>
+  );
+
+  if (loading) return loadingScreen;
+
   return (
     <div className="min-h-screen font-sans selection:bg-gold/30 selection:text-white transition-colors duration-500" style={{ backgroundColor: cardConfig.pageBackgroundColor }}>
       {/* Main Content */}
       <main className="w-full max-w-[1800px] mx-auto px-6 py-8 md:py-12">
         
         {/* Navigation Tabs */}
-        <nav className="flex justify-center gap-8 mb-16 border-b border-white/5">
+        <nav className="flex justify-center gap-8 mb-16 border-b border-white/5 relative">
           <button 
             onClick={() => setActiveTab('directory')}
             className={`flex items-center gap-2 py-4 px-4 text-xs font-bold uppercase tracking-[0.2em] transition-all relative ${
@@ -1094,6 +1370,14 @@ export default function App() {
             {activeTab === 'customization' && (
               <motion.div layoutId="nav-active" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
             )}
+          </button>
+
+          <button
+            onClick={handleLogout}
+            title="Sair"
+            className="absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-full text-white/20 hover:text-red-400/60 hover:bg-white/5 transition-all"
+          >
+            <ExternalLink size={15} />
           </button>
         </nav>
 
