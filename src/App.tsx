@@ -891,8 +891,29 @@ export default function App() {
     .name { font-size: 24px; margin-bottom: 16px; color: #FFFFFF; }
     .divider { height: 1px; width: 96px; background: linear-gradient(to right, transparent, ${cardConfig.iconColor}66, transparent); margin-bottom: 24px; }
     .social-icons { display: flex; gap: 16px; margin-bottom: 24px; }
-    .icon-circle { width: 40px; height: 40px; border-radius: 50%; border: 1px solid ${cardConfig.iconColor}4d; display: flex; align-items: center; justify-content: center; color: ${cardConfig.iconColor}b3; text-decoration: none; }
-    .category-pill { font-size: 10px; text-transform: uppercase; padding: 8px 24px; border-radius: 99px; border: 1px solid ${cardConfig.iconColor}33; background: ${cardConfig.iconColor}0d; color: ${cardConfig.iconColor}cc; margin-bottom: 24px; font-style: italic; }
+    .icon-circle { 
+      width: 40px; height: 40px; border-radius: 50%; border: 1px solid ${cardConfig.iconColor}4d; 
+      display: flex; align-items: center; justify-content: center; color: ${cardConfig.iconColor}b3; 
+      text-decoration: none; transition: all 0.3s ease;
+    }
+    .icon-circle:hover {
+      background: ${cardConfig.iconColor}1a;
+      color: ${cardConfig.iconColor};
+      border-color: ${cardConfig.iconColor};
+      transform: translateY(-2px);
+    }
+    .card-wrapper:hover .logo-ring-wrapper {
+      border-color: ${cardConfig.iconColor};
+    }
+    .card-wrapper:hover .logo-inner {
+      box-shadow: ${cardConfig.showLogoRings ? `0 0 30px ${cardConfig.iconColor}4d` : 'none'};
+    }
+    .category-pill { font-size: 10px; text-transform: uppercase; padding: 8px 24px; border-radius: 99px; border: 1px solid ${cardConfig.iconColor}33; background: ${cardConfig.iconColor}0d; color: ${cardConfig.iconColor}cc; margin-bottom: 24px; font-style: italic; transition: all 0.3s ease; }
+    .category-pill:hover {
+      background: ${cardConfig.iconColor}1a;
+      border-color: ${cardConfig.iconColor}66;
+      color: ${cardConfig.iconColor};
+    }
     .address { font-size: 11px; color: rgba(255, 255, 255, 0.4); display: flex; gap: 8px; text-align: center; }
     .footer { width: 100%; padding-top: 16px; margin-top: 24px; }
     .divider-full { height: 1px; width: 100%; background: linear-gradient(to right, transparent, ${cardConfig.iconColor}33, transparent); margin-bottom: 16px; }
