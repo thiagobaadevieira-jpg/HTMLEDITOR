@@ -22,8 +22,52 @@ import {
   Trash2,
   ChevronRight,
   Palette,
-  Settings2
+  Settings2,
+  Store,
+  Package,
+  Gift,
+  Truck,
+  CreditCard,
+  Globe,
+  Link,
+  Map as MapIcon,
+  Phone,
+  MessageSquare,
+  Send,
+  Camera,
+  Link2,
+  User,
+  Upload
 } from 'lucide-react';
+
+const ICON_COMPONENTS = {
+  ShoppingBag, Store, Package, Gift, Truck, CreditCard, Globe, Link, MapIcon,
+  MessageCircle, Phone, MessageSquare, Send,
+  Instagram, Camera, Link2, User
+};
+
+const FOOTER_ICONS = ['ShoppingBag', 'Store', 'Package', 'Gift', 'Truck', 'CreditCard', 'Globe', 'Link', 'MapIcon'];
+const WHATSAPP_ICONS = ['MessageCircle', 'Phone', 'MessageSquare', 'Send'];
+const INSTAGRAM_ICONS = ['Instagram', 'Camera', 'Link2', 'User'];
+
+const DEFAULT_CARD_CONFIG: CardConfig = {
+  borderRadius: 32,
+  padding: 32,
+  backgroundColor: '#121212',
+  backgroundOpacity: 100,
+  accentColor: '#D4AF37',
+  iconColor: '#D4AF37',
+  logoBorderColor: '#D4AF37',
+  logoBorderWidth: 2,
+  showLogoRings: false,
+  fontFamily: 'font-sans',
+  showIcons: true,
+  pageBackgroundColor: '#050505',
+  footerIcon: 'ShoppingBag',
+  whatsappIcon: 'MessageCircle',
+  instagramIcon: 'Instagram',
+  footerBrandName: 'Luxe Directory',
+};
 
 // Types
 interface CardConfig {
@@ -32,11 +76,21 @@ interface CardConfig {
   backgroundColor: string;
   backgroundOpacity: number;
   accentColor: string;
+  iconColor: string;
   logoBorderColor: string;
   logoBorderWidth: number;
   showLogoRings: boolean;
   fontFamily: 'font-sans' | 'font-mono' | 'font-display';
   showIcons: boolean;
+  pageBackgroundColor: string;
+  footerIcon: string;
+  whatsappIcon: string;
+  instagramIcon: string;
+  whatsappIconUrl?: string;
+  instagramIconUrl?: string;
+  footerIconUrl?: string;
+  footerLogoUrl?: string;
+  footerBrandName?: string;
 }
 
 interface Supplier {
@@ -48,6 +102,7 @@ interface Supplier {
   whatsapp: string;
   instagram: string;
   logo: string;
+  logoUrl?: string;
 }
 
 // Mock Data
@@ -132,6 +187,25 @@ const SupplierCard: React.FC<{
   onEdit,
   config
 }) => {
+  const WhatsAppIcon = (ICON_COMPONENTS as any)[config.whatsappIcon] || MessageCircle;
+  const InstaIcon = (ICON_COMPONENTS as any)[config.instagramIcon] || Instagram;
+  const FooterIcon = (ICON_COMPONENTS as any)[config.footerIcon] || ShoppingBag;
+
+  const renderIcon = (iconName: string, iconUrl?: string, size = 22) => {
+    if (iconUrl) {
+      return (
+        <img 
+          src={iconUrl} 
+          alt="icon" 
+          style={{ width: size, height: size, objectFit: 'contain' }} 
+        />
+      );
+    }
+    const IconComp = (ICON_COMPONENTS as any)[iconName];
+    if (!IconComp) return null;
+    return <IconComp size={size} />;
+  };
+
   return (
     <motion.div
       layout
@@ -183,90 +257,105 @@ const SupplierCard: React.FC<{
         />
         
         {/* Logo Section */}
-        <div className="relative z-10 w-28 h-28 mb-6">
+        <div className="relative z-10 w-[120px] h-[120px] mb-8">
           <div 
             className="absolute inset-0 rounded-full flex items-center justify-center transition-all"
             style={{ 
               border: `${config.logoBorderWidth}px solid ${config.logoBorderColor}`,
-              padding: config.showLogoRings ? '8px' : '0'
+              padding: config.showLogoRings ? '10px' : '0'
             }}
           >
             <div 
               className="w-full h-full rounded-full border flex items-center justify-center bg-black overflow-hidden"
               style={{ 
-                borderColor: config.showLogoRings ? `${config.accentColor}80` : 'transparent',
-                boxShadow: config.showLogoRings ? `0 0 20px ${config.accentColor}26` : 'none'
+                borderColor: config.showLogoRings ? `${config.iconColor}80` : 'transparent',
+                boxShadow: config.showLogoRings ? `0 0 20px ${config.iconColor}26` : 'none'
               }}
             >
-              <span 
-                className="text-4xl font-display font-light tracking-widest"
-                style={{ color: config.accentColor }}
-              >{supplier.logo}</span>
+              {supplier.logoUrl ? (
+                <img 
+                  src={supplier.logoUrl} 
+                  alt={supplier.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span 
+                  className="text-4xl font-display font-light tracking-widest"
+                  style={{ color: config.iconColor }}
+                >{supplier.logo}</span>
+              )}
             </div>
           </div>
           {/* Decorative Ring */}
           {config.showLogoRings && (
             <div 
-              className="absolute -inset-2 rounded-full border border-dashed animate-[spin_20s_linear_infinite]"
-              style={{ borderColor: `${config.accentColor}1a` }}
+              className="absolute -inset-2 rounded-full border border-dashed animate-[spin_30s_linear_infinite]"
+              style={{ borderColor: `${config.iconColor}1a` }}
             />
           )}
         </div>
 
         {/* Info */}
-        <div className="text-center z-10 w-full mb-6">
-          <h3 className="text-xl font-display font-medium text-white/90 mb-1">{supplier.handle}</h3>
-          <p className="text-xs text-white/40 uppercase tracking-[0.2em] mb-4">{supplier.name}</p>
+        <div className="text-center z-10 w-full mb-6 flex flex-col items-center">
+          <span 
+            className="text-[10px] uppercase font-bold tracking-[0.3em] mb-2 block"
+            style={{ color: `${config.iconColor}80` }}
+          >
+            {supplier.handle}
+          </span>
+          <h3 className="text-2xl font-display font-normal text-white mb-4 tracking-tight leading-tight text-center">
+            {supplier.name}
+          </h3>
           
           <div 
             className="h-px w-24 mx-auto mb-6"
-            style={{ background: `linear-gradient(to right, transparent, ${config.accentColor}66, transparent)` }}
+            style={{ background: `linear-gradient(to right, transparent, ${config.iconColor}66, transparent)` }}
           />
           
           {/* Social Icons */}
           {config.showIcons && (
-            <div className="flex justify-center gap-6 mb-8">
+            <div className="flex justify-center gap-6 mb-8 w-full">
               <a 
                 href={`https://wa.me/${supplier.whatsapp}`}
                 target="_blank"
                 className="p-3 rounded-full border transition-all duration-300"
                 style={{ 
-                  borderColor: `${config.accentColor}4d`,
-                  color: `${config.accentColor}b3`,
+                  borderColor: `${config.iconColor}4d`,
+                  color: `${config.iconColor}b3`,
                   backgroundColor: 'transparent'
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.backgroundColor = `${config.accentColor}1a`;
-                  (e.currentTarget as HTMLElement).style.color = config.accentColor;
+                  (e.currentTarget as HTMLElement).style.backgroundColor = `${config.iconColor}1a`;
+                  (e.currentTarget as HTMLElement).style.color = config.iconColor;
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
-                  (e.currentTarget as HTMLElement).style.color = `${config.accentColor}b3`;
+                  (e.currentTarget as HTMLElement).style.color = `${config.iconColor}b3`;
                 }}
                 title="WhatsApp"
               >
-                <MessageCircle size={22} />
+                {renderIcon(config.whatsappIcon, config.whatsappIconUrl, 22)}
               </a>
               <a 
                 href={`https://instagram.com/${supplier.instagram}`}
                 target="_blank"
                 className="p-3 rounded-full border transition-all duration-300"
                 style={{ 
-                  borderColor: `${config.accentColor}4d`,
-                  color: `${config.accentColor}b3`,
+                  borderColor: `${config.iconColor}4d`,
+                  color: `${config.iconColor}b3`,
                   backgroundColor: 'transparent'
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.backgroundColor = `${config.accentColor}1a`;
-                  (e.currentTarget as HTMLElement).style.color = config.accentColor;
+                  (e.currentTarget as HTMLElement).style.backgroundColor = `${config.iconColor}1a`;
+                  (e.currentTarget as HTMLElement).style.color = config.iconColor;
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
-                  (e.currentTarget as HTMLElement).style.color = `${config.accentColor}b3`;
+                  (e.currentTarget as HTMLElement).style.color = `${config.iconColor}b3`;
                 }}
                 title="Instagram"
               >
-                <Instagram size={22} />
+                {renderIcon(config.instagramIcon, config.instagramIconUrl, 22)}
               </a>
             </div>
           )}
@@ -274,20 +363,20 @@ const SupplierCard: React.FC<{
           {/* Category Pill */}
           <div 
             className="inline-block px-6 py-2 rounded-full border bg-gold/5 mb-6"
-            style={{ borderColor: `${config.accentColor}33`, backgroundColor: `${config.accentColor}0d` }}
+            style={{ borderColor: `${config.iconColor}33`, backgroundColor: `${config.iconColor}0d` }}
           >
             <span 
               className="text-[10px] uppercase font-medium tracking-[0.15em] italic"
-              style={{ color: `${config.accentColor}cc` }}
+              style={{ color: `${config.iconColor}cc` }}
             >
               {supplier.category}
             </span>
           </div>
 
           {/* Address */}
-          <div className="flex items-start justify-center gap-2 px-2">
-            <MapPin size={14} className="mt-0.5 shrink-0" style={{ color: `${config.accentColor}99` }} />
-            <p className="text-[11px] text-white/50 leading-relaxed max-w-[200px]">
+          <div className="flex items-start justify-center gap-2 px-2 w-full">
+            <MapPin size={14} className="mt-0.5 shrink-0" style={{ color: `${config.iconColor}99` }} />
+            <p className="text-[11px] text-white/50 leading-relaxed max-w-[200px] text-center">
               {supplier.address}
             </p>
           </div>
@@ -297,10 +386,10 @@ const SupplierCard: React.FC<{
         <div className="relative z-10 w-full pt-4 mt-auto">
           <div 
             className="h-px w-full mb-4"
-            style={{ background: `linear-gradient(to right, transparent, ${config.accentColor}33, transparent)` }}
+            style={{ background: `linear-gradient(to right, transparent, ${config.iconColor}33, transparent)` }}
           />
-          <div className="flex justify-center">
-            <ShoppingBag size={18} style={{ color: `${config.accentColor}66` }} />
+          <div className="flex justify-center" style={{ color: `${config.iconColor}66` }}>
+            {renderIcon(config.footerIcon, config.footerIconUrl, 18)}
           </div>
         </div>
       </div>
@@ -311,18 +400,7 @@ const SupplierCard: React.FC<{
 export default function App() {
   const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
   const [activeTab, setActiveTab] = useState<'directory' | 'customization'>('directory');
-  const [cardConfig, setCardConfig] = useState<CardConfig>({
-    borderRadius: 32,
-    padding: 32,
-    backgroundColor: '#121212',
-    backgroundOpacity: 100,
-    accentColor: '#D4AF37',
-    logoBorderColor: '#D4AF37',
-    logoBorderWidth: 2,
-    showLogoRings: false,
-    fontFamily: 'font-sans',
-    showIcons: true,
-  });
+  const [cardConfig, setCardConfig] = useState<CardConfig>(DEFAULT_CARD_CONFIG);
   const [categories, setCategories] = useState<string[]>(['Moda Feminina', 'Moda Masculina', 'Calçados', 'Acessórios', 'Moda Fitness']);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
@@ -330,6 +408,7 @@ export default function App() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -339,7 +418,30 @@ export default function App() {
     address: '',
     whatsapp: '',
     instagram: '',
+    logoUrl: '' as string | undefined,
   });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, logoUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleConfigImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'whatsappIconUrl' | 'instagramIconUrl' | 'footerIconUrl') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCardConfig(prev => ({ ...prev, [field]: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const allCategories = ['Todos', ...categories];
 
@@ -359,36 +461,74 @@ export default function App() {
     const fontStack = cardConfig.fontFamily === 'font-mono' ? 'monospace' : 
                      cardConfig.fontFamily === 'font-display' ? "'Playfair Display', serif" : "'Inter', sans-serif";
 
+    const getIconSvg = (name: string, url?: string, size = 18) => {
+      if (url) {
+        return `<img src="${url}" style="width: ${size}px; height: ${size}px; object-fit: contain; filter: drop-shadow(0 0 1px rgba(0,0,0,0.5));" />`;
+      }
+      const paths: {[key: string]: string} = {
+        'ShoppingBag': '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path><path d="M3 6h18"></path><path d="M16 10a4 4 0 0 1-8 0"></path>',
+        'Store': '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"></path><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"></path><path d="M2 7h20"></path><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"></path>',
+        'Package': '<path d="M16.5 9.4 7.55 4.24"></path><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line>',
+        'Gift': '<polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>',
+        'Truck': '<rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle>',
+        'CreditCard': '<rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line>',
+        'Globe': '<circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>',
+        'Link': '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
+        'MapIcon': '<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line>',
+        'Instagram': '<rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>',
+        'Camera': '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle>',
+        'Link2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"></path><path d="M15 7h2a5 5 0 0 1 0 10h-2"></path><line x1="8" y1="12" x2="16" y2="12"></line>',
+        'User': '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
+        'MessageCircle': '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-13.4 8.38 8.38 0 0 1 3.8.9L21 3z"></path>',
+        'Phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>',
+        'MessageSquare': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>',
+        'Send': '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>',
+      };
+      const svgPath = paths[name] || paths['ShoppingBag'];
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" stroke="currentColor" stroke-width="2" fill="none">${svgPath}</svg>`;
+    };
+
     const cardsHtml = suppliersToExport.map(s => `
-      <div class="card">
-        <div class="logo-container">
-          <div class="logo-inner">
-            <span class="logo-text">${s.logo}</span>
-          </div>
-        </div>
-        <div class="info">
-          <h3 class="handle">${s.handle}</h3>
-          <p class="name">${s.name}</p>
-          <div class="divider"></div>
-          ${cardConfig.showIcons ? `
-          <div class="social-icons">
-            <div class="icon-circle">
-              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-13.4 8.38 8.38 0 0 1 3.8.9L21 3z"></path></svg>
-            </div>
-            <div class="icon-circle">
-              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+      <div class="card-wrapper">
+        <div class="glow" style="border-radius: ${cardConfig.borderRadius + 2}px; background: linear-gradient(to bottom, ${cardConfig.accentColor}66, ${cardConfig.accentColor}1a, ${cardConfig.accentColor}66);"></div>
+        <div class="card">
+          <div class="overlay" style="background: radial-gradient(at 50% 0%, ${cardConfig.accentColor}0d, transparent);"></div>
+          <div class="logo-container">
+            ${cardConfig.showLogoRings ? `<div class="logo-decorative-ring"></div>` : ''}
+            <div class="logo-ring-wrapper">
+              <div class="logo-inner">
+                ${s.logoUrl ? `
+                  <img src="${s.logoUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
+                ` : `
+                  <span class="logo-text">${s.logo}</span>
+                `}
+              </div>
             </div>
           </div>
-          ` : ''}
-          <div class="category-pill">${s.category}</div>
-          <div class="address">
-            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-            <span>${s.address}</span>
+          <div class="info">
+            <span class="handle">${s.handle}</span>
+            <h3 class="name">${s.name}</h3>
+            <div class="divider"></div>
+            ${cardConfig.showIcons ? `
+            <div class="social-icons">
+              <div class="icon-circle">
+                ${getIconSvg(cardConfig.whatsappIcon, cardConfig.whatsappIconUrl, 20)}
+              </div>
+              <div class="icon-circle">
+                ${getIconSvg(cardConfig.instagramIcon, cardConfig.instagramIconUrl, 20)}
+              </div>
+            </div>
+            ` : ''}
+            <div class="category-pill">${s.category}</div>
+            <div class="address">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              <span>${s.address}</span>
+            </div>
           </div>
-        </div>
-        <div class="footer">
-          <div class="divider-full"></div>
-          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path><path d="M3 6h18"></path><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+          <div class="footer">
+            <div class="divider-full"></div>
+            ${getIconSvg(cardConfig.footerIcon, cardConfig.footerIconUrl, 18)}
+          </div>
         </div>
       </div>
     `).join('');
@@ -409,21 +549,42 @@ export default function App() {
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
   <style>
     body {
-      background-color: #050505;
+      background-color: ${cardConfig.pageBackgroundColor};
       color: #FFFFFF;
       font-family: ${fontStack};
-      padding: 40px;
+      padding: 40px 20px;
       margin: 0;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
       gap: 32px;
       width: 100%;
-      max-width: 1200px;
+    }
+    .card-wrapper {
+      position: relative;
+      height: 100%;
+    }
+    .glow {
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      right: -1px;
+      bottom: -1px;
+      filter: blur(2px);
+      opacity: 0.2;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
     }
     .card {
       background: ${hexToRgbaCSS(cardConfig.backgroundColor, cardConfig.backgroundOpacity)};
@@ -434,59 +595,104 @@ export default function App() {
       flex-direction: column;
       align-items: center;
       position: relative;
+      overflow: hidden;
+      height: 100%;
+      box-sizing: border-box;
+      z-index: 1;
+    }
+    .logo-container, .footer {
+      position: relative;
+      z-index: 10;
     }
     .logo-container {
-      width: 112px;
-      height: 112px;
+      width: 120px;
+      height: 120px;
+      margin-bottom: 32px;
+      position: relative;
+    }
+    .logo-ring-wrapper {
+      position: absolute;
+      inset: 0;
       border-radius: 50%;
       border: ${cardConfig.logoBorderWidth}px solid ${cardConfig.logoBorderColor};
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 24px;
-      padding: ${cardConfig.showLogoRings ? '8px' : '0'};
+      padding: ${cardConfig.showLogoRings ? '10px' : '0'};
       box-sizing: border-box;
     }
     .logo-inner {
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      border: ${cardConfig.showLogoRings ? `1px solid ${cardConfig.accentColor}80` : 'none'};
+      border: ${cardConfig.showLogoRings ? `1px solid ${cardConfig.iconColor}80` : 'none'};
       background: black;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: ${cardConfig.showLogoRings ? `0 0 20px ${cardConfig.accentColor}26` : 'none'};
+      box-shadow: ${cardConfig.showLogoRings ? `0 0 20px ${cardConfig.iconColor}26` : 'none'};
       overflow: hidden;
+      box-sizing: border-box;
     }
     .logo-text {
-      color: ${cardConfig.accentColor};
+      color: ${cardConfig.iconColor};
       font-size: 36px;
       font-weight: 300;
       letter-spacing: 2px;
     }
-    .handle {
-      font-size: 20px;
-      margin-bottom: 4px;
-      text-align: center;
-      color: rgba(255,255,255,0.9);
+    .logo-decorative-ring {
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      right: -8px;
+      bottom: -8px;
+      border-radius: 50%;
+      border: 1px dashed ${cardConfig.iconColor}1a;
+      animation: spin 30s linear infinite;
     }
-    .name {
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .info {
+      flex-grow: 1;
+      width: 100%;
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .handle {
       font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 2px;
-      color: rgba(255,255,255,0.4);
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      color: ${cardConfig.iconColor}80;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .name {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 400;
       margin-bottom: 16px;
+      letter-spacing: 1px;
+      color: #FFFFFF;
       text-align: center;
     }
     .divider {
       height: 1px;
       width: 96px;
-      background: linear-gradient(to right, transparent, ${cardConfig.accentColor}66, transparent);
+      background: linear-gradient(to right, transparent, ${cardConfig.iconColor}66, transparent);
       margin-bottom: 24px;
+      margin-left: auto;
+      margin-right: auto;
     }
     .social-icons {
       display: flex;
+      justify-content: center;
       gap: 16px;
       margin-bottom: 24px;
     }
@@ -494,54 +700,88 @@ export default function App() {
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      border: 1px solid ${cardConfig.accentColor}4d;
+      border: 1px solid ${cardConfig.iconColor}4d;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: ${cardConfig.accentColor}b3;
+      color: ${cardConfig.iconColor}b3;
+      transition: all 0.3s ease;
+      text-decoration: none;
+    }
+    .icon-circle:hover {
+      background: ${cardConfig.iconColor}1a;
+      color: ${cardConfig.iconColor};
+      border-color: ${cardConfig.iconColor};
     }
     .category-pill {
+      display: inline-block;
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 1.5px;
       padding: 8px 24px;
       border-radius: 99px;
-      border: 1px solid ${cardConfig.accentColor}33;
-      background: ${cardConfig.accentColor}0d;
-      color: ${cardConfig.accentColor}cc;
+      border: 1px solid ${cardConfig.iconColor}33;
+      background: ${cardConfig.iconColor}0d;
+      color: ${cardConfig.iconColor}cc;
       margin-bottom: 24px;
       font-style: italic;
     }
     .address {
-      display: flex;
-      gap: 8px;
       font-size: 11px;
-      color: rgba(255,255,255,0.5);
+      color: rgba(255, 255, 255, 0.4);
+      line-height: 1.6;
+      max-width: 220px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       text-align: center;
-      max-width: 200px;
     }
     .footer {
       width: 100%;
-      margin-top: auto;
       padding-top: 16px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      margin-top: 24px;
+      position: relative;
+      z-index: 10;
     }
     .divider-full {
       height: 1px;
       width: 100%;
-      background: linear-gradient(to right, transparent, ${cardConfig.accentColor}33, transparent);
+      background: linear-gradient(to right, transparent, ${cardConfig.iconColor}33, transparent);
       margin-bottom: 16px;
     }
     svg {
-      color: ${cardConfig.accentColor}66;
+      color: ${cardConfig.iconColor}66;
     }
   </style>
 </head>
 <body>
-  <div class="grid">
-    ${cardsHtml}
+  <div style="max-width: 1200px; margin: 0 auto; width: 100%;">
+    <div style="display: flex; align-items: center; gap: 24px; margin-bottom: 64px;">
+      <h2 style="font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4em; color: rgba(255, 255, 255, 0.3); white-space: nowrap;">Catálogo de Fornecedores</h2>
+      <div style="height: 1px; width: 100%; background: linear-gradient(to right, ${cardConfig.iconColor}4d, transparent);"></div>
+    </div>
+    
+    <div class="grid">
+      ${cardsHtml}
+    </div>
+
+    <footer style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding: 64px 0; margin-top: 80px; width: 100%;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 32px; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          ${cardConfig.footerLogoUrl ? 
+            `<img src="${cardConfig.footerLogoUrl}" style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid ${cardConfig.iconColor}4d; object-fit: cover;">` : 
+            `<div style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid ${cardConfig.iconColor}4d; display: flex; align-items: center; justify-content: center; color: ${cardConfig.iconColor}; font-weight: 700; font-size: 14px;">${cardConfig.footerBrandName ? cardConfig.footerBrandName.charAt(0) : 'L'}</div>`
+          }
+          <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3em;">${cardConfig.footerBrandName}</div>
+        </div>
+        
+        <p style="color: rgba(255, 255, 255, 0.2); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">
+          © 2026 ${cardConfig.footerBrandName}. Todos os direitos reservados.
+        </p>
+      </div>
+    </footer>
   </div>
 </body>
 </html>
@@ -579,6 +819,7 @@ export default function App() {
       address: '',
       whatsapp: '',
       instagram: '',
+      logoUrl: undefined,
     });
   };
 
@@ -596,6 +837,7 @@ export default function App() {
       address: supplier.address,
       whatsapp: supplier.whatsapp,
       instagram: supplier.instagram,
+      logoUrl: supplier.logoUrl,
     });
     setEditingId(supplier.id);
     setIsModalOpen(true);
@@ -612,6 +854,7 @@ export default function App() {
         address: '',
         whatsapp: '',
         instagram: '',
+        logoUrl: undefined,
       });
     } else {
       setIsModalOpen(true);
@@ -629,7 +872,7 @@ export default function App() {
   }, [suppliers, searchTerm, selectedCategory]);
 
   return (
-    <div className="min-h-screen bg-[#050505] font-sans selection:bg-gold/30 selection:text-white">
+    <div className="min-h-screen font-sans selection:bg-gold/30 selection:text-white transition-colors duration-500" style={{ backgroundColor: cardConfig.pageBackgroundColor }}>
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8 md:py-12">
         
@@ -785,6 +1028,39 @@ export default function App() {
                 <h2 className="text-3xl font-display text-white mb-10">{editingId ? 'Editar Fornecedor' : 'Novo Cadastro'}</h2>
                 
                 <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                  <div className="md:col-span-2 flex flex-col items-center mb-6">
+                    <div className="relative group cursor-pointer">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                      />
+                      <div 
+                        className="w-24 h-24 rounded-full border-2 border-dashed border-gold/30 flex items-center justify-center bg-white/5 transition-all group-hover:border-gold/60 overflow-hidden"
+                      >
+                        {formData.logoUrl ? (
+                          <img src={formData.logoUrl} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="flex flex-col items-center text-gold/40 group-hover:text-gold/60">
+                            <Camera size={24} />
+                            <span className="text-[8px] uppercase tracking-tighter mt-1">Upload</span>
+                          </div>
+                        )}
+                      </div>
+                      {formData.logoUrl && (
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setFormData({...formData, logoUrl: undefined}); }}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 z-30"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[9px] uppercase tracking-widest text-white/30 mt-3">Logo ou Foto da Empresa</p>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Nome da Empresa</label>
                     <input 
@@ -913,9 +1189,17 @@ export default function App() {
         {/* Customization Controls */}
         <div className="w-full md:w-80 shrink-0 space-y-10">
           <div>
-            <div className="flex items-center gap-2 mb-6">
-              <Settings2 size={16} className="text-gold" />
-              <h2 className="text-white text-xs font-bold uppercase tracking-widest">Aparência</h2>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Settings2 size={16} className="text-gold" />
+                <h2 className="text-white text-xs font-bold uppercase tracking-widest">Aparência</h2>
+              </div>
+              <button 
+                onClick={() => setShowResetConfirm(true)}
+                className="text-[10px] uppercase tracking-widest text-gold/60 hover:text-gold transition-colors font-bold border-b border-transparent hover:border-gold/30"
+              >
+                Resetar
+              </button>
             </div>
             
             <div className="space-y-8">
@@ -964,7 +1248,7 @@ export default function App() {
               {/* Colors */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40">Fundo</label>
+                  <label className="text-[10px] uppercase tracking-widest text-white/40">Fundo Card</label>
                   <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-3">
                     <input 
                       type="color" 
@@ -985,6 +1269,30 @@ export default function App() {
                       className="w-6 h-6 bg-transparent border-none cursor-pointer"
                     />
                     <span className="text-[10px] text-white/60 font-mono">{cardConfig.accentColor}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40">Icones</label>
+                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-3">
+                    <input 
+                      type="color" 
+                      value={cardConfig.iconColor}
+                      onChange={e => setCardConfig({...cardConfig, iconColor: e.target.value})}
+                      className="w-6 h-6 bg-transparent border-none cursor-pointer"
+                    />
+                    <span className="text-[10px] text-white/60 font-mono">{cardConfig.iconColor}</span>
+                  </div>
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40">Fundo da Página</label>
+                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-3">
+                    <input 
+                      type="color" 
+                      value={cardConfig.pageBackgroundColor}
+                      onChange={e => setCardConfig({...cardConfig, pageBackgroundColor: e.target.value})}
+                      className="w-6 h-6 bg-transparent border-none cursor-pointer"
+                    />
+                    <span className="text-[10px] text-white/60 font-mono">{cardConfig.pageBackgroundColor}</span>
                   </div>
                 </div>
               </div>
@@ -1054,17 +1362,197 @@ export default function App() {
               </div>
 
               {/* Show Icons */}
-              <div className="flex items-center justify-between">
-                <label className="text-[10px] uppercase tracking-widest text-white/40">Exibir Ícones</label>
-                <button 
-                  onClick={() => setCardConfig({...cardConfig, showIcons: !cardConfig.showIcons})}
-                  className={`w-10 h-5 rounded-full transition-all relative ${cardConfig.showIcons ? 'bg-gold' : 'bg-white/10'}`}
-                >
-                  <motion.div 
-                    animate={{ x: cardConfig.showIcons ? 22 : 4 }}
-                    className="absolute top-1 w-3 h-3 rounded-full bg-white"
-                  />
-                </button>
+              <div className="space-y-6 pt-4 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40">Exibir Ícones</label>
+                  <button 
+                    onClick={() => setCardConfig({...cardConfig, showIcons: !cardConfig.showIcons})}
+                    className={`w-10 h-5 rounded-full transition-all relative ${cardConfig.showIcons ? 'bg-gold' : 'bg-white/10'}`}
+                  >
+                    <motion.div 
+                      animate={{ x: cardConfig.showIcons ? 22 : 4 }}
+                      className="absolute top-1 w-3 h-3 rounded-full bg-white"
+                    />
+                  </button>
+                </div>
+
+                {cardConfig.showIcons && (
+                  <>
+                    <div className="space-y-3">
+                      <label className="text-[10px] uppercase tracking-widest text-white/40">Ícone WhatsApp</label>
+                      <div className="flex flex-wrap gap-2">
+                        {WHATSAPP_ICONS.map(iconName => {
+                          const IconComp = (ICON_COMPONENTS as any)[iconName];
+                          return (
+                            <button
+                              key={iconName}
+                              onClick={() => setCardConfig({...cardConfig, whatsappIcon: iconName})}
+                              className={`p-2 rounded-lg border transition-all ${
+                                cardConfig.whatsappIcon === iconName 
+                                  ? 'border-gold text-gold bg-gold/5' 
+                                  : 'border-white/10 text-white/40 hover:border-white/30'
+                              }`}
+                            >
+                              <IconComp size={18} />
+                            </button>
+                          );
+                        })}
+                        <div className="relative group p-2 rounded-lg border border-white/10 text-white/40 hover:border-white/30 cursor-pointer">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={e => handleConfigImageUpload(e, 'whatsappIconUrl')}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                          />
+                          {cardConfig.whatsappIconUrl ? (
+                            <div className="relative">
+                              <img src={cardConfig.whatsappIconUrl} className="w-[18px] h-[18px] object-contain" />
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setCardConfig({...cardConfig, whatsappIconUrl: undefined}); }}
+                                className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-0.5"
+                              >
+                                <X size={8} />
+                              </button>
+                            </div>
+                          ) : (
+                            <Plus size={18} />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] uppercase tracking-widest text-white/40">Ícone Instagram</label>
+                      <div className="flex flex-wrap gap-2">
+                        {INSTAGRAM_ICONS.map(iconName => {
+                          const IconComp = (ICON_COMPONENTS as any)[iconName];
+                          return (
+                            <button
+                              key={iconName}
+                              onClick={() => setCardConfig({...cardConfig, instagramIcon: iconName})}
+                              className={`p-2 rounded-lg border transition-all ${
+                                cardConfig.instagramIcon === iconName 
+                                  ? 'border-gold text-gold bg-gold/5' 
+                                  : 'border-white/10 text-white/40 hover:border-white/30'
+                              }`}
+                            >
+                              <IconComp size={18} />
+                            </button>
+                          );
+                        })}
+                        <div className="relative group p-2 rounded-lg border border-white/10 text-white/40 hover:border-white/30 cursor-pointer">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={e => handleConfigImageUpload(e, 'instagramIconUrl')}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                          />
+                          {cardConfig.instagramIconUrl ? (
+                            <div className="relative">
+                              <img src={cardConfig.instagramIconUrl} className="w-[18px] h-[18px] object-contain" />
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setCardConfig({...cardConfig, instagramIconUrl: undefined}); }}
+                                className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-0.5"
+                              >
+                                <X size={8} />
+                              </button>
+                            </div>
+                          ) : (
+                            <Plus size={18} />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40">Ícone Rodapé</label>
+                  <div className="flex flex-wrap gap-2">
+                    {FOOTER_ICONS.map(iconName => {
+                      const IconComp = (ICON_COMPONENTS as any)[iconName];
+                      return (
+                        <button
+                          key={iconName}
+                          onClick={() => setCardConfig({...cardConfig, footerIcon: iconName})}
+                          className={`p-2 rounded-lg border transition-all ${
+                            cardConfig.footerIcon === iconName 
+                              ? 'border-gold text-gold bg-gold/5' 
+                              : 'border-white/10 text-white/40 hover:border-white/30'
+                          }`}
+                        >
+                          <IconComp size={18} />
+                        </button>
+                      );
+                    })}
+                    <div className="relative group p-2 rounded-lg border border-white/10 text-white/40 hover:border-white/30 cursor-pointer">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={e => handleConfigImageUpload(e, 'footerIconUrl')}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
+                      {cardConfig.footerIconUrl ? (
+                        <div className="relative">
+                          <img src={cardConfig.footerIconUrl} className="w-[18px] h-[18px] object-contain" />
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setCardConfig({...cardConfig, footerIconUrl: undefined}); }}
+                            className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-0.5"
+                          >
+                            <X size={8} />
+                          </button>
+                        </div>
+                      ) : (
+                        <Plus size={18} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4 pt-6 mt-6 border-t border-white/5">
+                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-gold font-bold">Rodapé da Página</h3>
+                  <div className="grid grid-cols-1 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-widest text-white/40">Nome da Marca</label>
+                      <input 
+                        type="text" 
+                        value={cardConfig.footerBrandName}
+                        onChange={e => setCardConfig({...cardConfig, footerBrandName: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-gold/50 transition-colors"
+                        placeholder="Ex: Luxe Directory"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-widest text-white/40">Logo do Rodapé</label>
+                      <label className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-3 cursor-pointer hover:bg-white/10 transition-all group">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setCardConfig({...cardConfig, footerLogoUrl: reader.result as string});
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 group-hover:border-gold/50 overflow-hidden">
+                          {cardConfig.footerLogoUrl ? (
+                            <img src={cardConfig.footerLogoUrl} className="w-full h-full object-cover" />
+                          ) : (
+                            <Upload size={14} className="text-white/40 group-hover:text-gold" />
+                          )}
+                        </div>
+                        <span className="text-[10px] text-white/60">
+                          {cardConfig.footerLogoUrl ? 'Alterar Logo' : 'Subir Logo Customizada'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1118,23 +1606,85 @@ export default function App() {
       <footer className="border-t border-white/5 py-16 px-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full border border-gold/30 flex items-center justify-center bg-gold/5">
-              <span className="text-gold font-display font-bold">L</span>
-            </div>
-            <span className="font-display text-white tracking-[0.2em] font-light">LUXE DIRECTORY</span>
-          </div>
-          
-          <div className="flex gap-8">
-            <a href="#" className="text-white/30 hover:text-gold transition-colors text-xs tracking-widest font-light">SOBRE</a>
-            <a href="#" className="text-white/30 hover:text-gold transition-colors text-xs tracking-widest font-light">CONTATO</a>
-            <a href="#" className="text-white/30 hover:text-gold transition-colors text-xs tracking-widest font-light">TERMOS</a>
+            {cardConfig.footerLogoUrl ? (
+              <img 
+                src={cardConfig.footerLogoUrl} 
+                alt="Footer Logo" 
+                className="w-10 h-10 rounded-full object-cover border border-gold/30"
+              />
+            ) : (
+              <div 
+                className="w-10 h-10 rounded-full border border-gold/30 flex items-center justify-center bg-gold/5"
+                style={{ borderColor: `${cardConfig.iconColor}4d` }}
+              >
+                <span className="text-gold font-display font-bold" style={{ color: cardConfig.iconColor }}>
+                  {cardConfig.footerBrandName ? cardConfig.footerBrandName.charAt(0) : 'L'}
+                </span>
+              </div>
+            )}
+            <span className="font-display text-white tracking-[0.2em] font-light uppercase">
+              {cardConfig.footerBrandName}
+            </span>
           </div>
 
-          <p className="text-[10px] text-white/20 tracking-widest">
-            © 2026 LUXE DIRECTORY. TODOS OS DIREITOS RESERVADOS.
+          <p className="text-[10px] text-white/20 tracking-widest uppercase">
+            © 2026 {cardConfig.footerBrandName}. Todos os direitos reservados.
           </p>
         </div>
       </footer>
+
+      {/* Reset Confirmation Modal */}
+      <AnimatePresence>
+        {showResetConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowResetConfirm(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-[#121212] border border-white/10 rounded-[40px] p-10 overflow-hidden shadow-2xl"
+            >
+              {/* Background Grain */}
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+              
+              <div className="relative z-10 text-center">
+                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6 text-red-500">
+                  <Settings2 size={32} />
+                </div>
+                <h2 className="text-2xl font-display text-white mb-4">Resetar Aparência?</h2>
+                <p className="text-white/40 text-sm leading-relaxed mb-10">
+                  Isso voltará todas as configurações de cores, bordas e ícones para o padrão original. 
+                  <span className="block mt-2 text-red-500/60 font-medium">Esta ação não pode ser desfeita.</span>
+                </p>
+                
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setShowResetConfirm(false)}
+                    className="flex-1 py-4 px-6 rounded-2xl bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all font-bold uppercase tracking-widest text-[10px]"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setCardConfig(DEFAULT_CARD_CONFIG);
+                      setShowResetConfirm(false);
+                    }}
+                    className="flex-1 py-4 px-6 rounded-2xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all font-bold uppercase tracking-widest text-[10px]"
+                  >
+                    Confirmar Reset
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
