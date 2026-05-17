@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import * as XLSX from 'xlsx';
 import { 
   Instagram, 
   MessageCircle, 
@@ -37,6 +38,7 @@ import {
   Camera,
   Link2,
   User,
+  AlertTriangle,
   Upload
 } from 'lucide-react';
 
@@ -95,6 +97,7 @@ interface CardConfig {
 
 interface Supplier {
   id: string;
+  numericId: number;
   name: string;
   handle: string;
   category: string;
@@ -109,6 +112,7 @@ interface Supplier {
 const INITIAL_SUPPLIERS: Supplier[] = [
   {
     id: '1',
+    numericId: 101,
     name: 'Lumiere Boutique',
     handle: '@lumiereboutique',
     category: 'Moda Feminina',
@@ -119,6 +123,7 @@ const INITIAL_SUPPLIERS: Supplier[] = [
   },
   {
     id: '2',
+    numericId: 102,
     name: 'Aurum Calçados',
     handle: '@aurumshoes',
     category: 'Calçados',
@@ -129,6 +134,7 @@ const INITIAL_SUPPLIERS: Supplier[] = [
   },
   {
     id: '3',
+    numericId: 103,
     name: 'Velvet Acessórios',
     handle: '@velvetacessories',
     category: 'Acessórios',
@@ -139,6 +145,7 @@ const INITIAL_SUPPLIERS: Supplier[] = [
   },
   {
     id: '4',
+    numericId: 104,
     name: 'Noir Menswear',
     handle: '@noirmenswear',
     category: 'Moda Masculina',
@@ -149,6 +156,7 @@ const INITIAL_SUPPLIERS: Supplier[] = [
   },
   {
     id: '5',
+    numericId: 105,
     name: 'Stela Kids',
     handle: '@stelakids',
     category: 'Moda Infantil',
@@ -159,6 +167,7 @@ const INITIAL_SUPPLIERS: Supplier[] = [
   },
   {
     id: '6',
+    numericId: 106,
     name: 'Infinite Gym',
     handle: '@infinitegym',
     category: 'Moda Fitness',
@@ -375,7 +384,7 @@ const SupplierCard: React.FC<{
 
           {/* Address */}
           <div className="flex items-start justify-center gap-2 px-2 w-full">
-            <MapPin size={14} className="mt-0.5 shrink-0" style={{ color: `${config.iconColor}99` }} />
+            <MapPin size={14} className="mt-1 shrink-0" style={{ color: `${config.iconColor}99` }} />
             <p className="text-[11px] text-white/50 leading-relaxed max-w-[200px] text-center">
               {supplier.address}
             </p>
@@ -388,7 +397,9 @@ const SupplierCard: React.FC<{
             className="h-px w-full mb-4"
             style={{ background: `linear-gradient(to right, transparent, ${config.iconColor}33, transparent)` }}
           />
-          <div className="flex justify-center" style={{ color: `${config.iconColor}66` }}>
+          <div className="flex justify-center items-center gap-3 w-full" style={{ color: `${config.iconColor}66` }}>
+            <span className="text-[10px] font-bold tracking-tight text-white/30" style={{ fontFamily: 'Arial, sans-serif' }}>#{supplier.numericId}</span>
+            <div className="w-1 h-1 rounded-full bg-white/10" />
             {renderIcon(config.footerIcon, config.footerIconUrl, 18)}
           </div>
         </div>
@@ -399,16 +410,19 @@ const SupplierCard: React.FC<{
 
 export default function App() {
   const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
+  const [lastNumericId, setLastNumericId] = useState(Math.max(...INITIAL_SUPPLIERS.map(s => s.numericId), 100));
+  const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'directory' | 'customization'>('directory');
   const [cardConfig, setCardConfig] = useState<CardConfig>(DEFAULT_CARD_CONFIG);
   const [categories, setCategories] = useState<string[]>(['Moda Feminina', 'Moda Masculina', 'Calçados', 'Acessórios', 'Moda Fitness']);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<{ count: number, names: string[], type: 'import' | 'export' } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -454,17 +468,124 @@ export default function App() {
     }
   };
 
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const bstr = evt.target?.result;
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const data = XLSX.utils.sheet_to_json(ws);
+
+      const existingNames = new Set(suppliers.map(s => s.name.toLowerCase().trim()));
+      const existingHandles = new Set(suppliers.map(s => s.instagram?.toLowerCase().trim()).filter(Boolean));
+
+      const duplicates: string[] = [];
+      const validNewSuppliers: Supplier[] = [];
+      let tempLastId = lastNumericId;
+
+      data.forEach((row: any) => {
+        const name = (row['Nome da Loja'] || row['Nome'] || '').toString().trim();
+        const instagram = (row['Instagram'] || '').toString().replace('@', '').toLowerCase().trim();
+        const whatsapp = (row['WhatsApp'] || row['Whatsapp'] || '').toString().replace(/\D/g, '');
+        const address = row['Endereço'] || row['Endereco'] || '';
+        const logoUrl = row['URL da imagem de perfil'] || row['URL Imagem'] || row['Logo URL'] || undefined;
+        const category = selectedCategory !== 'Todos' ? selectedCategory : (row['Categoria'] || 'Importado');
+
+        if (!name) return;
+
+        const isDuplicate = existingNames.has(name.toLowerCase()) || (instagram && existingHandles.has(instagram));
+
+        if (isDuplicate) {
+          duplicates.push(name);
+        } else {
+          tempLastId++;
+          validNewSuppliers.push({
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+            numericId: tempLastId,
+            name,
+            handle: instagram ? `@${instagram}` : '',
+            category,
+            address,
+            whatsapp,
+            instagram,
+            logo: name.charAt(0).toUpperCase() || 'S',
+            logoUrl
+          });
+          // Update sets to catch duplicates within the same file
+          existingNames.add(name.toLowerCase());
+          if (instagram) existingHandles.add(instagram);
+        }
+      });
+
+      if (duplicates.length > 0) {
+        setDuplicateWarning({ count: duplicates.length, names: duplicates.slice(0, 5), type: 'import' });
+      }
+
+      if (validNewSuppliers.length > 0) {
+        setSuppliers(prev => [...validNewSuppliers, ...prev]);
+        setLastNumericId(tempLastId);
+        const newCats = Array.from(new Set(validNewSuppliers.map(s => s.category)));
+        setCategories(prev => Array.from(new Set([...prev, ...newCats])));
+      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleDownloadExample = () => {
+    const exampleData = [
+      {
+        'Nome da Loja': 'Loja Exemplo',
+        'Instagram': 'loja_exemplo',
+        'WhatsApp': '5511999999999',
+        'Endereço': 'Rua Exemplo, 123 - Bairro',
+        'URL da imagem de perfil': 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200',
+        'Categoria': 'Importado'
+      },
+      {
+        'Nome da Loja': 'Moda Premium',
+        'Instagram': 'modapremium',
+        'WhatsApp': '5511888888888',
+        'Endereço': 'Av. Principal, 456',
+        'URL da imagem de perfil': 'https://images.unsplash.com/photo-1470309082958-c64a75f99bf5?w=200',
+        'Categoria': 'Nacional'
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(exampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Exemplo");
+    XLSX.writeFile(wb, "exemplo_importacao.xlsx");
+  };
+
   const handleExport = () => {
     const suppliersToExport = filteredSuppliers;
     if (suppliersToExport.length === 0) return;
 
+    // Check for internal duplicates in the current filter
+    const seen = new Set();
+    const exportDuplicates: string[] = [];
+    suppliersToExport.forEach(s => {
+      const key = `${s.name.toLowerCase()}-${s.instagram?.toLowerCase()}`;
+      if (seen.has(key)) {
+        exportDuplicates.push(s.name);
+      }
+      seen.add(key);
+    });
+
+    if (exportDuplicates.length > 0) {
+      setDuplicateWarning({ count: exportDuplicates.length, names: exportDuplicates.slice(0, 5), type: 'export' });
+      return; // Block export if there are duplicates
+    }
+
     const fontStack = cardConfig.fontFamily === 'font-mono' ? 'monospace' : 
                      cardConfig.fontFamily === 'font-display' ? "'Playfair Display', serif" : "'Inter', sans-serif";
 
-    const getIconSvg = (name: string, url?: string, size = 18) => {
-      if (url) {
-        return `<img src="${url}" style="width: ${size}px; height: ${size}px; object-fit: contain; filter: drop-shadow(0 0 1px rgba(0,0,0,0.5));" />`;
-      }
+    const getIconPaths = (name: string) => {
       const paths: {[key: string]: string} = {
         'ShoppingBag': '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path><path d="M3 6h18"></path><path d="M16 10a4 4 0 0 1-8 0"></path>',
         'Store': '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"></path><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"></path><path d="M2 7h20"></path><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"></path>',
@@ -482,17 +603,26 @@ export default function App() {
         'MessageCircle': '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-13.4 8.38 8.38 0 0 1 3.8.9L21 3z"></path>',
         'Phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>',
         'MessageSquare': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>',
+        'Search': '<circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path>',
         'Send': '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>',
+        'MapPin': '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>'
       };
-      const svgPath = paths[name] || paths['ShoppingBag'];
-      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" stroke="currentColor" stroke-width="2" fill="none">${svgPath}</svg>`;
+      return paths[name] || paths['ShoppingBag'];
+    };
+
+    const getIconSvg = (name: string, url?: string, size = 18) => {
+      if (url) {
+        return `<img src="${url}" style="width: ${size}px; height: ${size}px; object-fit: contain; filter: drop-shadow(0 0 1px rgba(0,0,0,0.5));" />`;
+      }
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" stroke="currentColor" stroke-width="2" fill="none"><use xlink:href="#icon-${name}"></use></svg>`;
     };
 
     const cardsHtml = suppliersToExport.map(s => `
-      <div class="card-wrapper">
-        <div class="glow" style="border-radius: ${cardConfig.borderRadius + 2}px; background: linear-gradient(to bottom, ${cardConfig.accentColor}66, ${cardConfig.accentColor}1a, ${cardConfig.accentColor}66);"></div>
+      <div class="card-wrapper" data-name="${s.name}" data-id="${s.numericId}">
+        <div class="glow"></div>
         <div class="card">
-          <div class="overlay" style="background: radial-gradient(at 50% 0%, ${cardConfig.accentColor}0d, transparent);"></div>
+          <div class="overlay"></div>
+          
           <div class="logo-container">
             ${cardConfig.showLogoRings ? `<div class="logo-decorative-ring"></div>` : ''}
             <div class="logo-ring-wrapper">
@@ -511,23 +641,27 @@ export default function App() {
             <div class="divider"></div>
             ${cardConfig.showIcons ? `
             <div class="social-icons">
-              <div class="icon-circle">
+              <a href="https://wa.me/${s.whatsapp}" target="_blank" class="icon-circle">
                 ${getIconSvg(cardConfig.whatsappIcon, cardConfig.whatsappIconUrl, 20)}
-              </div>
-              <div class="icon-circle">
+              </a>
+              <a href="https://instagram.com/${s.instagram}" target="_blank" class="icon-circle">
                 ${getIconSvg(cardConfig.instagramIcon, cardConfig.instagramIconUrl, 20)}
-              </div>
+              </a>
             </div>
             ` : ''}
             <div class="category-pill">${s.category}</div>
             <div class="address">
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              ${getIconSvg('MapPin', undefined, 14)}
               <span>${s.address}</span>
             </div>
           </div>
           <div class="footer">
             <div class="divider-full"></div>
-            ${getIconSvg(cardConfig.footerIcon, cardConfig.footerIconUrl, 18)}
+            <div style="display: flex; justify-content: center; align-items: center; gap: 12px; width: 100%; color: ${cardConfig.iconColor}66;">
+              <span class="footer-id">#${s.numericId}</span>
+              <div style="width: 3px; height: 3px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);"></div>
+              ${getIconSvg(cardConfig.footerIcon, cardConfig.footerIconUrl, 18)}
+            </div>
           </div>
         </div>
       </div>
@@ -540,12 +674,21 @@ export default function App() {
       return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
     };
 
+    const symbolsHtml = Array.from(new Set([
+      cardConfig.whatsappIcon,
+      cardConfig.instagramIcon,
+      cardConfig.footerIcon,
+      'MapPin',
+      'Search'
+    ])).map(name => `<symbol id="icon-${name}" viewBox="0 0 24 24">${getIconPaths(name)}</symbol>`).join('');
+
     const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Custom Directory - ${selectedCategory}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo de Fornecedores - ${selectedCategory}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
   <style>
     body {
@@ -559,6 +702,44 @@ export default function App() {
       flex-direction: column;
       align-items: center;
     }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .search-section {
+      width: 100%;
+      margin-bottom: 64px;
+    }
+    .search-wrapper {
+      position: relative;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+    .search-wrapper:focus-within {
+      border-color: ${cardConfig.iconColor}80;
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: 0 0 30px ${cardConfig.iconColor}1a;
+    }
+    .search-input {
+      width: 100%;
+      height: 64px;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 16px;
+      font-family: inherit;
+    }
+    .search-svg {
+      color: ${cardConfig.iconColor}66;
+      margin-right: 16px;
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -568,6 +749,13 @@ export default function App() {
     .card-wrapper {
       position: relative;
       height: 100%;
+      transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s ease;
+    }
+    .card-wrapper.hidden {
+      display: none;
+    }
+    .card-wrapper:hover {
+      transform: translateY(-5px);
     }
     .glow {
       position: absolute;
@@ -579,12 +767,19 @@ export default function App() {
       opacity: 0.2;
       pointer-events: none;
       z-index: 0;
+      transition: opacity 0.5s ease;
+      border-radius: ${cardConfig.borderRadius + 2}px;
+      background: linear-gradient(to bottom, ${cardConfig.accentColor}66, ${cardConfig.accentColor}1a, ${cardConfig.accentColor}66);
+    }
+    .card-wrapper:hover .glow {
+      opacity: 0.4;
     }
     .overlay {
       position: absolute;
       inset: 0;
       pointer-events: none;
       z-index: 0;
+      background: radial-gradient(at 50% 0%, ${cardConfig.accentColor}0d, transparent);
     }
     .card {
       background: ${hexToRgbaCSS(cardConfig.backgroundColor, cardConfig.backgroundOpacity)};
@@ -600,170 +795,54 @@ export default function App() {
       box-sizing: border-box;
       z-index: 1;
     }
-    .logo-container, .footer {
-      position: relative;
-      z-index: 10;
+    .footer-id {
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.3);
     }
-    .logo-container {
-      width: 120px;
-      height: 120px;
-      margin-bottom: 32px;
-      position: relative;
-    }
+    .logo-container { width: 120px; height: 120px; margin-bottom: 32px; position: relative; }
     .logo-ring-wrapper {
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
+      position: absolute; inset: 0; border-radius: 50%;
       border: ${cardConfig.logoBorderWidth}px solid ${cardConfig.logoBorderColor};
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       padding: ${cardConfig.showLogoRings ? '10px' : '0'};
-      box-sizing: border-box;
     }
     .logo-inner {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
+      width: 100%; height: 100%; border-radius: 50%;
       border: ${cardConfig.showLogoRings ? `1px solid ${cardConfig.iconColor}80` : 'none'};
-      background: black;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: ${cardConfig.showLogoRings ? `0 0 20px ${cardConfig.iconColor}26` : 'none'};
+      background: black; display: flex; align-items: center; justify-content: center;
       overflow: hidden;
-      box-sizing: border-box;
     }
-    .logo-text {
-      color: ${cardConfig.iconColor};
-      font-size: 36px;
-      font-weight: 300;
-      letter-spacing: 2px;
-    }
-    .logo-decorative-ring {
-      position: absolute;
-      top: -8px;
-      left: -8px;
-      right: -8px;
-      bottom: -8px;
-      border-radius: 50%;
-      border: 1px dashed ${cardConfig.iconColor}1a;
-      animation: spin 30s linear infinite;
-    }
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-    .info {
-      flex-grow: 1;
-      width: 100%;
-      position: relative;
-      z-index: 10;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .handle {
-      font-size: 10px;
-      text-transform: uppercase;
-      font-weight: 700;
-      letter-spacing: 0.3em;
-      color: ${cardConfig.iconColor}80;
-      margin-bottom: 8px;
-      text-align: center;
-    }
-    .name {
-      font-family: 'Playfair Display', serif;
-      font-size: 24px;
-      font-weight: 400;
-      margin-bottom: 16px;
-      letter-spacing: 1px;
-      color: #FFFFFF;
-      text-align: center;
-    }
-    .divider {
-      height: 1px;
-      width: 96px;
-      background: linear-gradient(to right, transparent, ${cardConfig.iconColor}66, transparent);
-      margin-bottom: 24px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .social-icons {
-      display: flex;
-      justify-content: center;
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-    .icon-circle {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 1px solid ${cardConfig.iconColor}4d;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: ${cardConfig.iconColor}b3;
-      transition: all 0.3s ease;
-      text-decoration: none;
-    }
-    .icon-circle:hover {
-      background: ${cardConfig.iconColor}1a;
-      color: ${cardConfig.iconColor};
-      border-color: ${cardConfig.iconColor};
-    }
-    .category-pill {
-      display: inline-block;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      padding: 8px 24px;
-      border-radius: 99px;
-      border: 1px solid ${cardConfig.iconColor}33;
-      background: ${cardConfig.iconColor}0d;
-      color: ${cardConfig.iconColor}cc;
-      margin-bottom: 24px;
-      font-style: italic;
-    }
-    .address {
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.4);
-      line-height: 1.6;
-      max-width: 220px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      text-align: center;
-    }
-    .footer {
-      width: 100%;
-      padding-top: 16px;
-      margin-top: 24px;
-      position: relative;
-      z-index: 10;
-    }
-    .divider-full {
-      height: 1px;
-      width: 100%;
-      background: linear-gradient(to right, transparent, ${cardConfig.iconColor}33, transparent);
-      margin-bottom: 16px;
-    }
-    svg {
-      color: ${cardConfig.iconColor}66;
-    }
+    .logo-text { color: ${cardConfig.iconColor}; font-size: 36px; font-weight: 300; }
+    .info { flex-grow: 1; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; }
+    .handle { font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.3em; color: ${cardConfig.iconColor}80; margin-bottom: 8px; }
+    .name { font-size: 24px; margin-bottom: 16px; color: #FFFFFF; }
+    .divider { height: 1px; width: 96px; background: linear-gradient(to right, transparent, ${cardConfig.iconColor}66, transparent); margin-bottom: 24px; }
+    .social-icons { display: flex; gap: 16px; margin-bottom: 24px; }
+    .icon-circle { width: 40px; height: 40px; border-radius: 50%; border: 1px solid ${cardConfig.iconColor}4d; display: flex; align-items: center; justify-content: center; color: ${cardConfig.iconColor}b3; text-decoration: none; }
+    .category-pill { font-size: 10px; text-transform: uppercase; padding: 8px 24px; border-radius: 99px; border: 1px solid ${cardConfig.iconColor}33; background: ${cardConfig.iconColor}0d; color: ${cardConfig.iconColor}cc; margin-bottom: 24px; font-style: italic; }
+    .address { font-size: 11px; color: rgba(255, 255, 255, 0.4); display: flex; gap: 8px; text-align: center; }
+    .footer { width: 100%; padding-top: 16px; margin-top: 24px; }
+    .divider-full { height: 1px; width: 100%; background: linear-gradient(to right, transparent, ${cardConfig.iconColor}33, transparent); margin-bottom: 16px; }
   </style>
 </head>
 <body>
-  <div style="max-width: 1200px; margin: 0 auto; width: 100%;">
+  <svg style="display: none;">${symbolsHtml}</svg>
+  <div class="container">
+    <div class="search-section">
+      <div class="search-wrapper">
+        <svg class="search-svg" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><use xlink:href="#icon-Search"></use></svg>
+        <input type="text" id="searchInput" class="search-input" placeholder="Pesquisar por nome ou código ID...">
+      </div>
+    </div>
+
     <div style="display: flex; align-items: center; gap: 24px; margin-bottom: 64px;">
-      <h2 style="font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4em; color: rgba(255, 255, 255, 0.3); white-space: nowrap;">Catálogo de Fornecedores</h2>
+      <h2 style="font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4em; color: rgba(255, 255, 255, 0.3); white-space: nowrap;">Catálogo de Fornecedores${selectedCategory !== 'Todos' ? ` - ${selectedCategory}` : ''}</h2>
       <div style="height: 1px; width: 100%; background: linear-gradient(to right, ${cardConfig.iconColor}4d, transparent);"></div>
     </div>
     
-    <div class="grid">
+    <div class="grid" id="cardGrid">
       ${cardsHtml}
     </div>
 
@@ -783,6 +862,24 @@ export default function App() {
       </div>
     </footer>
   </div>
+
+  <script>
+    const searchInput = document.getElementById('searchInput');
+    const cards = document.getElementsByClassName('card-wrapper');
+
+    searchInput.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase().trim();
+      Array.from(cards).forEach(card => {
+        const name = card.getAttribute('data-name').toLowerCase();
+        const id = card.getAttribute('data-id').toLowerCase();
+        if (name.includes(term) || id.includes(term)) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+    });
+  </script>
 </body>
 </html>
     `;
@@ -804,12 +901,15 @@ export default function App() {
       setSuppliers(suppliers.map(s => s.id === editingId ? { ...s, ...formData, logo: formData.handle.charAt(1).toUpperCase() || 'S' } : s));
       setEditingId(null);
     } else {
+      const nextId = lastNumericId + 1;
       const newSupplier: Supplier = {
         id: Date.now().toString(),
+        numericId: nextId,
         ...formData,
         logo: formData.handle.charAt(1).toUpperCase() || 'S'
       };
       setSuppliers([newSupplier, ...suppliers]);
+      setLastNumericId(nextId);
     }
     setIsModalOpen(false);
     setFormData({
@@ -863,12 +963,13 @@ export default function App() {
 
   const filteredSuppliers = useMemo(() => {
     return suppliers.filter(s => {
-      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           s.handle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           s.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const term = searchTerm.toLowerCase().trim();
+      const matchesSearch = !term || 
+                           s.name.toLowerCase().includes(term) || 
+                           s.numericId.toString().includes(term);
       const matchesCategory = selectedCategory === 'Todos' || s.category === selectedCategory;
       return matchesSearch && matchesCategory;
-    });
+    }).sort((a, b) => b.numericId - a.numericId);
   }, [suppliers, searchTerm, selectedCategory]);
 
   return (
@@ -977,6 +1078,29 @@ export default function App() {
         
         {/* Top Header Section - Minimal */}
         <div className="flex justify-end gap-4 mb-12">
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            onChange={handleImportExcel}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+          <div className="flex flex-col items-end gap-1">
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-white/60 text-xs font-semibold tracking-widest uppercase hover:bg-white/5 transition-all"
+            >
+              <Upload size={16} />
+              Importar Excel
+            </button>
+            <button 
+              onClick={handleDownloadExample}
+              className="text-[9px] uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors mr-4"
+            >
+              Baixar Exemplo de Importação
+            </button>
+          </div>
+
           {filteredSuppliers.length > 0 && (
             <button 
               onClick={handleExport}
@@ -1059,6 +1183,17 @@ export default function App() {
                       )}
                     </div>
                     <p className="text-[9px] uppercase tracking-widest text-white/30 mt-3">Logo ou Foto da Empresa</p>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">URL da Imagem de Perfil (Opcional)</label>
+                    <input 
+                      type="text" 
+                      placeholder="https://exemplo.com/imagem.jpg"
+                      value={formData.logoUrl || ''}
+                      onChange={e => setFormData({...formData, logoUrl: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -1149,9 +1284,32 @@ export default function App() {
         {/* Results Info */}
         <div className="mb-8 flex items-center justify-between">
           <p className="text-xs text-white/30 tracking-widest uppercase">
-            Catálogo de Fornecedores
+            Catálogo de Fornecedores {selectedCategory !== 'Todos' && ` - ${selectedCategory}`}
           </p>
           <div className="h-px grow mx-6 bg-gradient-to-r from-gold/20 to-transparent" />
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-12 relative group">
+          <div className="absolute inset-0 bg-gold/5 blur-2xl rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity" />
+          <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-6 py-1 focus-within:border-gold/50 transition-all">
+            <Search className="text-white/20 group-focus-within:text-gold/50 transition-colors" size={20} />
+            <input 
+              type="text"
+              placeholder="Pesquisar por nome ou código ID..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full bg-transparent border-none outline-none py-5 px-4 text-white text-lg placeholder:text-white/10"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className="p-2 hover:bg-white/5 rounded-full text-white/20 hover:text-white/40 transition-all"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Grid */}
@@ -1680,6 +1838,64 @@ export default function App() {
                     Confirmar Reset
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Duplicate Warning Modal */}
+      <AnimatePresence>
+        {duplicateWarning && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDuplicateWarning(null)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-[32px] p-8 overflow-hidden shadow-2xl"
+            >
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+              
+              <div className="relative z-10 text-center">
+                <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                  <AlertTriangle className="text-amber-500" size={32} />
+                </div>
+                
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  {duplicateWarning.type === 'import' ? 'Fornecedores Repetidos' : 'Erro na Exportação'}
+                </h3>
+                
+                <p className="text-white/50 text-sm leading-relaxed mb-6">
+                  {duplicateWarning.type === 'import' ? (
+                    <>Identificamos <strong>{duplicateWarning.count}</strong> fornecedor(es) que já estão cadastrados. Eles foram ignorados.</>
+                  ) : (
+                    <>Existem <strong>{duplicateWarning.count}</strong> fornecedores duplicados na lista. Remova-os antes de exportar.</>
+                  )}
+                </p>
+
+                <div className="bg-white/5 rounded-2xl p-4 mb-8 text-left">
+                  <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">Alguns exemplos:</p>
+                  <ul className="space-y-1">
+                    {duplicateWarning.names.map((name, i) => (
+                      <li key={i} className="text-xs text-white/60 truncate">• {name}</li>
+                    ))}
+                    {duplicateWarning.count > 5 && <li className="text-[10px] text-white/20 italic mt-1">...e outros {duplicateWarning.count - 5}</li>}
+                  </ul>
+                </div>
+
+                <button 
+                  onClick={() => setDuplicateWarning(null)}
+                  className="w-full py-4 bg-white text-black text-xs font-bold uppercase tracking-widest rounded-2xl hover:bg-white/90 transition-all shadow-lg"
+                >
+                  Entendido
+                </button>
               </div>
             </motion.div>
           </div>
