@@ -57,9 +57,9 @@ const DEFAULT_CARD_CONFIG: CardConfig = {
   padding: 32,
   backgroundColor: '#121212',
   backgroundOpacity: 100,
-  accentColor: '#D4AF37',
-  iconColor: '#D4AF37',
-  logoBorderColor: '#D4AF37',
+  accentColor: '#C89A62',
+  iconColor: '#C89A62',
+  logoBorderColor: '#C89A62',
   logoBorderWidth: 2,
   showLogoRings: false,
   fontFamily: 'font-sans',
@@ -691,21 +691,25 @@ export default function App() {
   <title>Catálogo de Fornecedores - ${selectedCategory}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    body {
+    html, body {
+      margin: 0;
+      padding: 0;
       background-color: ${cardConfig.pageBackgroundColor};
+      min-height: 100vh;
+    }
+    body {
       color: #FFFFFF;
       font-family: ${fontStack};
-      padding: 40px 20px;
-      margin: 0;
-      min-height: 100vh;
+      padding: 40px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      box-sizing: border-box;
     }
     .container {
-      max-width: 1200px;
-      margin: 0 auto;
       width: 100%;
+      padding: 40px;
+      box-sizing: border-box;
     }
     .search-section {
       width: 100%;
@@ -975,7 +979,7 @@ export default function App() {
   return (
     <div className="min-h-screen font-sans selection:bg-gold/30 selection:text-white transition-colors duration-500" style={{ backgroundColor: cardConfig.pageBackgroundColor }}>
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8 md:py-12">
+      <main className="w-full max-w-[1800px] mx-auto px-6 py-8 md:py-12">
         
         {/* Navigation Tabs */}
         <nav className="flex justify-center gap-8 mb-16 border-b border-white/5">
@@ -1762,7 +1766,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-16 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="w-full max-w-[1800px] mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-3">
             {cardConfig.footerLogoUrl ? (
               <img 

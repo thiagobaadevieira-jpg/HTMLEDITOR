@@ -5,11 +5,11 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Playfair Display", serif;
   
-  --color-gold: #D4AF37;
-  --color-gold-light: #F9E29C;
-  --color-gold-dark: #A67C00;
+  --color-gold: #C89A62;
+  --color-gold-light: #E2C3A1;
+  --color-gold-dark: #9C774C;
   
-  --shadow-gold: 0 0 20px rgba(212, 175, 55, 0.15);
+  --shadow-gold: 0 0 20px rgba(200, 154, 98, 0.15);
 }
 
 body {
