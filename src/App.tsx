@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback, memo, startTransition } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { supabase, uploadLogo, dataUrlToStorageUrl, type DbSupplier, type DbCardConfig } from './lib/supabase';
@@ -191,17 +191,17 @@ const hexToRgba = (hex: string, opacity: number) => {
   return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
 };
 
-const SupplierCard: React.FC<{ 
-  supplier: Supplier; 
-  onDelete: (id: string) => void; 
-  onEdit: (supplier: Supplier) => void; 
-  config: CardConfig;
-}> = ({ 
-  supplier, 
-  onDelete, 
+const SupplierCard = memo(function SupplierCard({
+  supplier,
+  onDelete,
   onEdit,
   config
-}) => {
+}: {
+  supplier: Supplier;
+  onDelete: (id: string) => void;
+  onEdit: (supplier: Supplier) => void;
+  config: CardConfig;
+}) {
   const WhatsAppIcon = (ICON_COMPONENTS as any)[config.whatsappIcon] || MessageCircle;
   const InstaIcon = (ICON_COMPONENTS as any)[config.instagramIcon] || Instagram;
   const FooterIcon = (ICON_COMPONENTS as any)[config.footerIcon] || ShoppingBag;
@@ -223,12 +223,11 @@ const SupplierCard: React.FC<{
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      whileHover={{ y: -5 }}
-      transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
       className={`relative group h-full ${config.fontFamily}`}
       id={`supplier-${supplier.id}`}
     >
@@ -288,9 +287,11 @@ const SupplierCard: React.FC<{
               }}
             >
               {supplier.logoUrl ? (
-                <img 
-                  src={supplier.logoUrl} 
+                <img
+                  src={supplier.logoUrl}
                   alt={supplier.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -412,7 +413,7 @@ const SupplierCard: React.FC<{
       </div>
     </motion.div>
   );
-};
+});
 
 function dbToSupplier(row: DbSupplier): Supplier {
   return {
@@ -542,6 +543,11 @@ export default function App() {
     if (error) setLoginError('E-mail ou senha incorretos.');
     setLoginLoading(false);
   };
+
+  // Batched config update with startTransition — keeps sliders/pickers 60fps
+  const updateConfig = useCallback((updates: Partial<CardConfig>) => {
+    startTransition(() => setCardConfig(prev => ({ ...prev, ...updates })));
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -1174,14 +1180,14 @@ export default function App() {
     });
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (window.confirm('Deseja realmente excluir este fornecedor?')) {
       setSuppliers(prev => prev.filter(s => s.id !== id));
       await supabase.from('suppliers').delete().eq('id', id);
     }
-  };
+  }, []);
 
-  const handleEdit = (supplier: Supplier) => {
+  const handleEdit = useCallback((supplier: Supplier) => {
     setFormData({
       name: supplier.name,
       handle: supplier.handle,
@@ -1193,7 +1199,7 @@ export default function App() {
     });
     setEditingId(supplier.id);
     setIsModalOpen(true);
-  };
+  }, []);
 
   const toggleRegister = () => {
     if (isModalOpen) {
@@ -1715,7 +1721,7 @@ export default function App() {
 
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence mode="sync">
             {filteredSuppliers.map((supplier) => (
               <SupplierCard 
                 key={supplier.id} 
@@ -1771,7 +1777,7 @@ export default function App() {
                 <input 
                   type="range" min="0" max="64" 
                   value={cardConfig.borderRadius}
-                  onChange={e => setCardConfig({...cardConfig, borderRadius: parseInt(e.target.value)})}
+                  onChange={e => updateConfig({borderRadius: parseInt(e.target.value)})}
                   className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                 />
               </div>
@@ -1785,7 +1791,7 @@ export default function App() {
                 <input 
                   type="range" min="16" max="64" 
                   value={cardConfig.padding}
-                  onChange={e => setCardConfig({...cardConfig, padding: parseInt(e.target.value)})}
+                  onChange={e => updateConfig({padding: parseInt(e.target.value)})}
                   className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                 />
               </div>
@@ -1799,7 +1805,7 @@ export default function App() {
                 <input 
                   type="range" min="0" max="100" 
                   value={cardConfig.backgroundOpacity}
-                  onChange={e => setCardConfig({...cardConfig, backgroundOpacity: parseInt(e.target.value)})}
+                  onChange={e => updateConfig({backgroundOpacity: parseInt(e.target.value)})}
                   className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                 />
               </div>
@@ -1812,7 +1818,7 @@ export default function App() {
                     <input 
                       type="color" 
                       value={cardConfig.backgroundColor}
-                      onChange={e => setCardConfig({...cardConfig, backgroundColor: e.target.value})}
+                      onChange={e => updateConfig({backgroundColor: e.target.value})}
                       className="w-6 h-6 bg-transparent border-none cursor-pointer"
                     />
                     <span className="text-[10px] text-white/60 font-mono">{cardConfig.backgroundColor}</span>
@@ -1824,7 +1830,7 @@ export default function App() {
                     <input 
                       type="color" 
                       value={cardConfig.accentColor}
-                      onChange={e => setCardConfig({...cardConfig, accentColor: e.target.value})}
+                      onChange={e => updateConfig({accentColor: e.target.value})}
                       className="w-6 h-6 bg-transparent border-none cursor-pointer"
                     />
                     <span className="text-[10px] text-white/60 font-mono">{cardConfig.accentColor}</span>
@@ -1836,7 +1842,7 @@ export default function App() {
                     <input 
                       type="color" 
                       value={cardConfig.iconColor}
-                      onChange={e => setCardConfig({...cardConfig, iconColor: e.target.value})}
+                      onChange={e => updateConfig({iconColor: e.target.value})}
                       className="w-6 h-6 bg-transparent border-none cursor-pointer"
                     />
                     <span className="text-[10px] text-white/60 font-mono">{cardConfig.iconColor}</span>
@@ -1848,7 +1854,7 @@ export default function App() {
                     <input 
                       type="color" 
                       value={cardConfig.pageBackgroundColor}
-                      onChange={e => setCardConfig({...cardConfig, pageBackgroundColor: e.target.value})}
+                      onChange={e => updateConfig({pageBackgroundColor: e.target.value})}
                       className="w-6 h-6 bg-transparent border-none cursor-pointer"
                     />
                     <span className="text-[10px] text-white/60 font-mono">{cardConfig.pageBackgroundColor}</span>
@@ -1868,7 +1874,7 @@ export default function App() {
                   <input 
                     type="range" min="0" max="12" 
                     value={cardConfig.logoBorderWidth}
-                    onChange={e => setCardConfig({...cardConfig, logoBorderWidth: parseInt(e.target.value)})}
+                    onChange={e => updateConfig({logoBorderWidth: parseInt(e.target.value)})}
                     className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                   />
                 </div>
@@ -1879,7 +1885,7 @@ export default function App() {
                     <input 
                       type="color" 
                       value={cardConfig.logoBorderColor}
-                      onChange={e => setCardConfig({...cardConfig, logoBorderColor: e.target.value})}
+                      onChange={e => updateConfig({logoBorderColor: e.target.value})}
                       className="w-6 h-6 bg-transparent border-none cursor-pointer"
                     />
                     <span className="text-[10px] text-white/60 font-mono">{cardConfig.logoBorderColor}</span>
@@ -1889,7 +1895,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] uppercase tracking-widest text-white/40">Efeito de Anéis</label>
                   <button 
-                    onClick={() => setCardConfig({...cardConfig, showLogoRings: !cardConfig.showLogoRings})}
+                    onClick={() => updateConfig({showLogoRings: !cardConfig.showLogoRings})}
                     className={`w-10 h-5 rounded-full transition-all relative ${cardConfig.showLogoRings ? 'bg-gold' : 'bg-white/10'}`}
                   >
                     <motion.div 
@@ -1907,7 +1913,7 @@ export default function App() {
                   {(['font-sans', 'font-mono', 'font-display'] as const).map(font => (
                     <button
                       key={font}
-                      onClick={() => setCardConfig({...cardConfig, fontFamily: font})}
+                      onClick={() => updateConfig({fontFamily: font})}
                       className={`py-2 text-[9px] uppercase tracking-widest rounded-lg border transition-all ${
                         cardConfig.fontFamily === font 
                           ? 'border-gold text-gold bg-gold/5' 
@@ -1925,7 +1931,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] uppercase tracking-widest text-white/40">Exibir Ícones</label>
                   <button 
-                    onClick={() => setCardConfig({...cardConfig, showIcons: !cardConfig.showIcons})}
+                    onClick={() => updateConfig({showIcons: !cardConfig.showIcons})}
                     className={`w-10 h-5 rounded-full transition-all relative ${cardConfig.showIcons ? 'bg-gold' : 'bg-white/10'}`}
                   >
                     <motion.div 
@@ -1945,7 +1951,7 @@ export default function App() {
                       <input 
                         type="range" min="12" max="36" 
                         value={cardConfig.socialIconSize}
-                        onChange={e => setCardConfig({...cardConfig, socialIconSize: parseInt(e.target.value)})}
+                        onChange={e => updateConfig({socialIconSize: parseInt(e.target.value)})}
                         className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                       />
                     </div>
@@ -1958,7 +1964,7 @@ export default function App() {
                           return (
                             <button
                               key={iconName}
-                              onClick={() => setCardConfig({...cardConfig, whatsappIcon: iconName})}
+                              onClick={() => updateConfig({whatsappIcon: iconName})}
                               className={`p-2 rounded-lg border transition-all ${
                                 cardConfig.whatsappIcon === iconName 
                                   ? 'border-gold text-gold bg-gold/5' 
@@ -1980,7 +1986,7 @@ export default function App() {
                             <div className="relative">
                               <img src={cardConfig.whatsappIconUrl} className="w-[18px] h-[18px] object-contain" />
                               <button 
-                                onClick={(e) => { e.stopPropagation(); setCardConfig({...cardConfig, whatsappIconUrl: undefined}); }}
+                                onClick={(e) => { e.stopPropagation(); updateConfig({whatsappIconUrl: undefined}); }}
                                 className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-0.5"
                               >
                                 <X size={8} />
@@ -2001,7 +2007,7 @@ export default function App() {
                           return (
                             <button
                               key={iconName}
-                              onClick={() => setCardConfig({...cardConfig, instagramIcon: iconName})}
+                              onClick={() => updateConfig({instagramIcon: iconName})}
                               className={`p-2 rounded-lg border transition-all ${
                                 cardConfig.instagramIcon === iconName 
                                   ? 'border-gold text-gold bg-gold/5' 
@@ -2023,7 +2029,7 @@ export default function App() {
                             <div className="relative">
                               <img src={cardConfig.instagramIconUrl} className="w-[18px] h-[18px] object-contain" />
                               <button 
-                                onClick={(e) => { e.stopPropagation(); setCardConfig({...cardConfig, instagramIconUrl: undefined}); }}
+                                onClick={(e) => { e.stopPropagation(); updateConfig({instagramIconUrl: undefined}); }}
                                 className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-0.5"
                               >
                                 <X size={8} />
@@ -2046,7 +2052,7 @@ export default function App() {
                   <input 
                     type="range" min="10" max="32" 
                     value={cardConfig.footerIconSize}
-                    onChange={e => setCardConfig({...cardConfig, footerIconSize: parseInt(e.target.value)})}
+                    onChange={e => updateConfig({footerIconSize: parseInt(e.target.value)})}
                     className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                   />
                 </div>
@@ -2059,7 +2065,7 @@ export default function App() {
                       return (
                         <button
                           key={iconName}
-                          onClick={() => setCardConfig({...cardConfig, footerIcon: iconName})}
+                          onClick={() => updateConfig({footerIcon: iconName})}
                           className={`p-2 rounded-lg border transition-all ${
                             cardConfig.footerIcon === iconName 
                               ? 'border-gold text-gold bg-gold/5' 
@@ -2081,7 +2087,7 @@ export default function App() {
                         <div className="relative">
                           <img src={cardConfig.footerIconUrl} className="w-[18px] h-[18px] object-contain" />
                           <button 
-                            onClick={(e) => { e.stopPropagation(); setCardConfig({...cardConfig, footerIconUrl: undefined}); }}
+                            onClick={(e) => { e.stopPropagation(); updateConfig({footerIconUrl: undefined}); }}
                             className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-0.5"
                           >
                             <X size={8} />
@@ -2101,7 +2107,7 @@ export default function App() {
                       <input 
                         type="text" 
                         value={cardConfig.footerBrandName}
-                        onChange={e => setCardConfig({...cardConfig, footerBrandName: e.target.value})}
+                        onChange={e => updateConfig({footerBrandName: e.target.value})}
                         className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-gold/50 transition-colors"
                         placeholder="Ex: Luxe Directory"
                       />
@@ -2117,7 +2123,7 @@ export default function App() {
                             if (file) {
                               const reader = new FileReader();
                               reader.onloadend = () => {
-                                setCardConfig({...cardConfig, footerLogoUrl: reader.result as string});
+                                updateConfig({footerLogoUrl: reader.result as string});
                               };
                               reader.readAsDataURL(file);
                             }
