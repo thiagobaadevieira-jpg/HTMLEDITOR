@@ -416,7 +416,7 @@ const SupplierCard = memo(function SupplierCard({
             style={{ background: `linear-gradient(to right, transparent, ${config.iconColor}33, transparent)` }}
           />
           <div className="flex justify-center items-center gap-3 w-full" style={{ color: `${config.iconColor}66` }}>
-            <span className="font-bold tracking-tight text-white/30" style={{ fontFamily: 'Arial, sans-serif', fontSize: `${config.codeSize}px` }}>#{supplier.numericId}</span>
+            <span className="font-bold tracking-tight text-white/30" style={{ fontFamily: 'Arial, sans-serif', fontSize: `${config.codeSize}px` }}>{supplier.numericId}</span>
             <div className="w-1 h-1 rounded-full bg-white/10" />
             {renderIcon(config.footerIcon, config.footerIconUrl, config.footerIconSize)}
           </div>
@@ -901,7 +901,7 @@ export default function App() {
           <div class="footer">
             <div class="divider-full"></div>
             <div style="display: flex; justify-content: center; align-items: center; gap: 12px; width: 100%; color: ${cardConfig.iconColor}66;">
-              <span class="footer-id">#${s.numericId}</span>
+              <span class="footer-id">${s.numericId}</span>
               <div style="width: 3px; height: 3px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);"></div>
               ${getIconSvg(cardConfig.footerIcon, cardConfig.footerIconUrl, cardConfig.footerIconSize)}
             </div>
