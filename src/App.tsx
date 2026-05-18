@@ -573,6 +573,14 @@ export default function App() {
       if (configRes.data) {
         setCardConfig(dbToCardConfig(configRes.data));
         setConfigId(configRes.data.id);
+      } else {
+        // No config row yet — create one with defaults
+        const { data: newConfig } = await supabase
+          .from('card_config')
+          .insert(cardConfigToDb(DEFAULT_CARD_CONFIG))
+          .select()
+          .single();
+        if (newConfig) setConfigId(newConfig.id);
       }
       setLoading(false);
     }
