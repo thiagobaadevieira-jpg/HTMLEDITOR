@@ -1171,13 +1171,31 @@ export default function App() {
     };
 
     if (editingId) {
-      // Optimistic update
-      setSuppliers(prev => prev.map(s => s.id === editingId
-        ? { ...s, ...dbPayload, logoUrl: finalLogoUrl || undefined }
-        : s
-      ));
+      const idToUpdate = editingId;
+      // Optimistic — explicit camelCase fields (no snake_case bleed)
+      setSuppliers(prev => prev.map(s => s.id === idToUpdate ? {
+        ...s,
+        name: dbPayload.name,
+        handle: dbPayload.handle,
+        category: dbPayload.category,
+        address: dbPayload.address,
+        whatsapp: dbPayload.whatsapp,
+        instagram: dbPayload.instagram,
+        logo: dbPayload.logo,
+        logoUrl: finalLogoUrl || undefined,
+      } : s));
       setEditingId(null);
-      await supabase.from('suppliers').update(dbPayload).eq('id', editingId);
+
+      const { data, error } = await supabase
+        .from('suppliers')
+        .update(dbPayload)
+        .eq('id', idToUpdate)
+        .select()
+        .single();
+      if (error) console.error('[update supplier]', error);
+      else if (data) {
+        setSuppliers(prev => prev.map(s => s.id === idToUpdate ? dbToSupplier(data) : s));
+      }
     } else {
       const tempId = 'temp-' + Date.now();
       setSuppliers(prev => [{ id: tempId, numericId: 0, ...dbPayload, logoUrl: finalLogoUrl || undefined }, ...prev]);
