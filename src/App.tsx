@@ -1653,12 +1653,16 @@ export default function App() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4"> @ Instagram (Ex: @lumiere)</label>
-                    <input 
+                    <input
                       required
-                      type="text" 
+                      type="text"
                       placeholder="@handle"
                       value={formData.handle}
-                      onChange={e => setFormData({...formData, handle: e.target.value})}
+                      onChange={e => {
+                        const v = e.target.value;
+                        const clean = v.replace(/^@+/, '').toLowerCase().trim();
+                        setFormData({...formData, handle: v, instagram: clean});
+                      }}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
                     />
                   </div>
@@ -1700,13 +1704,16 @@ export default function App() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Instagram User</label>
-                    <input 
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Instagram User (auto-preenchido)</label>
+                    <input
                       required
-                      type="text" 
+                      type="text"
                       placeholder="lumiereboutique"
                       value={formData.instagram}
-                      onChange={e => setFormData({...formData, instagram: e.target.value})}
+                      onChange={e => {
+                        const clean = e.target.value.replace(/^@+/, '').toLowerCase().trim();
+                        setFormData({...formData, instagram: clean, handle: clean ? `@${clean}` : ''});
+                      }}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
                     />
                   </div>
