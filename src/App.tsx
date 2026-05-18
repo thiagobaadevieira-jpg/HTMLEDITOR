@@ -73,6 +73,7 @@ const DEFAULT_CARD_CONFIG: CardConfig = {
   footerBrandName: 'Luxe Directory',
   socialIconSize: 22,
   footerIconSize: 18,
+  codeSize: 10,
 };
 
 // Types
@@ -99,6 +100,7 @@ interface CardConfig {
   footerBrandName?: string;
   socialIconSize: number;
   footerIconSize: number;
+  codeSize: number;
 }
 
 interface Supplier {
@@ -405,7 +407,7 @@ const SupplierCard = memo(function SupplierCard({
             style={{ background: `linear-gradient(to right, transparent, ${config.iconColor}33, transparent)` }}
           />
           <div className="flex justify-center items-center gap-3 w-full" style={{ color: `${config.iconColor}66` }}>
-            <span className="text-[10px] font-bold tracking-tight text-white/30" style={{ fontFamily: 'Arial, sans-serif' }}>#{supplier.numericId}</span>
+            <span className="font-bold tracking-tight text-white/30" style={{ fontFamily: 'Arial, sans-serif', fontSize: `${config.codeSize}px` }}>#{supplier.numericId}</span>
             <div className="w-1 h-1 rounded-full bg-white/10" />
             {renderIcon(config.footerIcon, config.footerIconUrl, config.footerIconSize)}
           </div>
@@ -454,6 +456,7 @@ function dbToCardConfig(row: DbCardConfig): CardConfig {
     footerBrandName: row.footer_brand_name,
     socialIconSize: row.social_icon_size,
     footerIconSize: row.footer_icon_size,
+    codeSize: row.code_size,
   }
 }
 
@@ -481,6 +484,7 @@ function cardConfigToDb(config: CardConfig): Omit<DbCardConfig, 'id' | 'updated_
     footer_brand_name: config.footerBrandName ?? 'Luxe Directory',
     social_icon_size: config.socialIconSize,
     footer_icon_size: config.footerIconSize,
+    code_size: config.codeSize,
   }
 }
 
@@ -1029,7 +1033,7 @@ export default function App() {
     }
     .footer-id {
       font-family: Arial, sans-serif;
-      font-size: 11px;
+      font-size: ${cardConfig.codeSize}px;
       font-weight: 700;
       color: rgba(255, 255, 255, 0.3);
     }
@@ -1992,10 +1996,23 @@ export default function App() {
                         <label>Tamanho dos Ícones Sociais</label>
                         <span>{cardConfig.socialIconSize}px</span>
                       </div>
-                      <input 
-                        type="range" min="12" max="36" 
+                      <input
+                        type="range" min="12" max="36"
                         value={cardConfig.socialIconSize}
                         onChange={e => updateConfig({socialIconSize: parseInt(e.target.value)})}
+                        className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-white/40">
+                        <label>Tamanho do Código (#)</label>
+                        <span>{cardConfig.codeSize}px</span>
+                      </div>
+                      <input
+                        type="range" min="8" max="24"
+                        value={cardConfig.codeSize}
+                        onChange={e => updateConfig({codeSize: parseInt(e.target.value)})}
                         className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                       />
                     </div>

@@ -44,6 +44,7 @@ export interface DbCardConfig {
   footer_brand_name: string
   social_icon_size: number
   footer_icon_size: number
+  code_size: number
   updated_at: string
 }
 
