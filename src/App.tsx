@@ -987,6 +987,22 @@ export default function App() {
       color: ${cardConfig.iconColor}66;
       margin-right: 16px;
     }
+    .search-clear {
+      display: none;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.3);
+      transition: background 0.2s ease, color 0.2s ease;
+      margin-left: 8px;
+    }
+    .search-clear:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.6);
+    }
+    .search-clear.visible { display: inline-flex; align-items: center; justify-content: center; }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -1100,8 +1116,14 @@ export default function App() {
   <div class="container">
     <div class="search-section">
       <div class="search-wrapper">
-        <svg class="search-svg" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><use xlink:href="#icon-Search"></use></svg>
+        <svg class="search-svg" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><use xlink:href="#icon-Search"></use></svg>
         <input type="text" id="searchInput" class="search-input" placeholder="Pesquisar por nome ou código ID...">
+        <button type="button" id="searchClear" class="search-clear" aria-label="Limpar busca">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -1133,10 +1155,10 @@ export default function App() {
 
   <script>
     const searchInput = document.getElementById('searchInput');
+    const searchClear = document.getElementById('searchClear');
     const cards = document.getElementsByClassName('card-wrapper');
 
-    searchInput.addEventListener('input', (e) => {
-      const term = e.target.value.toLowerCase().trim();
+    function applyFilter(term) {
       Array.from(cards).forEach(card => {
         const name = card.getAttribute('data-name').toLowerCase();
         const id = card.getAttribute('data-id').toLowerCase();
@@ -1146,6 +1168,19 @@ export default function App() {
           card.classList.add('hidden');
         }
       });
+    }
+
+    searchInput.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase().trim();
+      searchClear.classList.toggle('visible', term.length > 0);
+      applyFilter(term);
+    });
+
+    searchClear.addEventListener('click', () => {
+      searchInput.value = '';
+      searchClear.classList.remove('visible');
+      applyFilter('');
+      searchInput.focus();
     });
   </script>
 </body>
