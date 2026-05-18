@@ -1056,9 +1056,9 @@ export default function App() {
     .name { font-size: 24px; margin-bottom: 16px; color: #FFFFFF; }
     .divider { height: 1px; width: 96px; background: linear-gradient(to right, transparent, ${cardConfig.iconColor}66, transparent); margin-bottom: 24px; }
     .social-icons { display: flex; gap: 16px; margin-bottom: 24px; }
-    .icon-circle { 
-      width: 40px; height: 40px; border-radius: 50%; border: 1px solid ${cardConfig.iconColor}4d; 
-      display: flex; align-items: center; justify-content: center; color: ${cardConfig.iconColor}b3; 
+    .icon-circle {
+      width: ${cardConfig.socialIconSize + 18}px; height: ${cardConfig.socialIconSize + 18}px; border-radius: 50%; border: 1px solid ${cardConfig.iconColor}4d;
+      display: flex; align-items: center; justify-content: center; color: ${cardConfig.iconColor}b3;
       text-decoration: none; transition: all 0.3s ease;
     }
     .icon-circle:hover {
