@@ -1366,7 +1366,7 @@ export default function App() {
   if (loading) return loadingScreen;
 
   return (
-    <div className="min-h-screen font-sans selection:bg-gold/30 selection:text-white transition-colors duration-500" style={{ backgroundColor: '#050505' }}>
+    <div className="min-h-screen font-sans selection:bg-gold/30 selection:text-white transition-colors duration-500" style={{ backgroundColor: cardConfig.pageBackgroundColor }}>
       {/* Main Content */}
       <main className="w-full max-w-[1800px] mx-auto px-6 py-8 md:py-12">
         
@@ -1738,41 +1738,35 @@ export default function App() {
           </div>
         </div>
 
-        {/* Stage — represents the exported HTML page background */}
-        <div
-          className="rounded-3xl p-6 md:p-10 transition-colors duration-300"
-          style={{ backgroundColor: cardConfig.pageBackgroundColor }}
-        >
-          {/* Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <AnimatePresence mode="sync">
-              {filteredSuppliers.map((supplier) => (
-                <SupplierCard
-                  key={supplier.id}
-                  supplier={supplier}
-                  onDelete={handleDelete}
-                  onEdit={handleEdit}
-                  config={cardConfig}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
-
-          {/* Empty State */}
-          {filteredSuppliers.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="py-32 text-center"
-            >
-              <div className="inline-flex p-6 rounded-full bg-white/5 border border-white/10 mb-6">
-                <Filter className="text-gold/40" size={32} />
-              </div>
-              <h3 className="text-xl font-display text-white mb-2">Nenhum fornecedor encontrado</h3>
-              <p className="text-white/30 text-sm">Tente ajustar sua busca ou filtros.</p>
-            </motion.div>
-          )}
+        {/* Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <AnimatePresence mode="sync">
+            {filteredSuppliers.map((supplier) => (
+              <SupplierCard
+                key={supplier.id}
+                supplier={supplier}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
+                config={cardConfig}
+              />
+            ))}
+          </AnimatePresence>
         </div>
+
+        {/* Empty State */}
+        {filteredSuppliers.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="py-32 text-center"
+          >
+            <div className="inline-flex p-6 rounded-full bg-white/5 border border-white/10 mb-6">
+              <Filter className="text-gold/40" size={32} />
+            </div>
+            <h3 className="text-xl font-display text-white mb-2">Nenhum fornecedor encontrado</h3>
+            <p className="text-white/30 text-sm">Tente ajustar sua busca ou filtros.</p>
+          </motion.div>
+        )}
       </>
     ) : (
       <div className="flex flex-col md:flex-row gap-12">
@@ -2181,28 +2175,22 @@ export default function App() {
             <div className="h-px grow mx-6 bg-gradient-to-r from-gold/20 to-transparent" />
           </div>
           
-          {/* Stage — preview with chosen page background */}
-          <div
-            className="rounded-3xl p-8 md:p-12 transition-colors duration-300"
-            style={{ backgroundColor: cardConfig.pageBackgroundColor }}
-          >
-            <div className="max-w-md mx-auto">
-              <SupplierCard
-                supplier={{
-                  id: 'preview',
-                  name: 'Nome da Sua Empresa',
-                  handle: '@seuhandle',
-                  category: 'Categoria Exemplo',
-                  address: 'Seu Endereço Completo Aqui',
-                  whatsapp: '5511999999999',
-                  instagram: 'seuprevisualizacao',
-                  logo: 'P'
-                }}
-                onDelete={() => {}}
-                onEdit={() => {}}
-                config={cardConfig}
-              />
-            </div>
+          <div className="max-w-md mx-auto">
+            <SupplierCard
+              supplier={{
+                id: 'preview',
+                name: 'Nome da Sua Empresa',
+                handle: '@seuhandle',
+                category: 'Categoria Exemplo',
+                address: 'Seu Endereço Completo Aqui',
+                whatsapp: '5511999999999',
+                instagram: 'seuprevisualizacao',
+                logo: 'P'
+              }}
+              onDelete={() => {}}
+              onEdit={() => {}}
+              config={cardConfig}
+            />
           </div>
           
           <div className="mt-12 p-8 rounded-3xl bg-gold/5 border border-gold/10">
