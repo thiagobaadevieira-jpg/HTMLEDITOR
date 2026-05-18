@@ -587,15 +587,26 @@ export default function App() {
     loadData();
   }, [session]);
 
-  // Debounced save of card_config to DB (600ms after last change)
+  // Keep refs in sync so the timer callback always reads latest values
+  const cardConfigRef = useRef(cardConfig);
+  const configIdRef = useRef(configId);
+  useEffect(() => { cardConfigRef.current = cardConfig; }, [cardConfig]);
+  useEffect(() => { configIdRef.current = configId; }, [configId]);
+
+  // Debounced save of card_config to DB (500ms after last change)
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
     if (!configId) return;
     if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current);
-    configSaveTimerRef.current = setTimeout(() => {
-      supabase.from('card_config').update(cardConfigToDb(cardConfig)).eq('id', configId);
-    }, 600);
-    return () => { if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current); };
+    configSaveTimerRef.current = setTimeout(async () => {
+      const id = configIdRef.current;
+      if (!id) return;
+      const { error } = await supabase
+        .from('card_config')
+        .update(cardConfigToDb(cardConfigRef.current))
+        .eq('id', id);
+      if (error) console.error('[card_config save]', error);
+    }, 500);
   }, [cardConfig, configId]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
