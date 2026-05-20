@@ -1899,6 +1899,23 @@ export default function App() {
           <h2 className="text-white text-xs font-bold uppercase tracking-widest">Ações & Dados</h2>
         </div>
 
+        {/* Fornecedores */}
+        <section>
+          <h3 className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">Fornecedores</h3>
+          <button
+            onClick={toggleRegister}
+            className="group w-full flex items-center gap-4 p-6 rounded-2xl bg-gold/10 border border-gold/30 hover:bg-gold/15 hover:border-gold/50 transition-all text-left"
+          >
+            <div className="p-3 rounded-xl bg-gold text-black group-hover:scale-110 transition-transform">
+              <Plus size={24} />
+            </div>
+            <div>
+              <div className="text-gold text-sm font-bold uppercase tracking-widest mb-1">Cadastrar Fornecedor</div>
+              <div className="text-white/40 text-xs">Adicione um novo fornecedor ao seu diretório</div>
+            </div>
+          </button>
+        </section>
+
         {/* Categorias */}
         <section>
           <h3 className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">Categorias</h3>
