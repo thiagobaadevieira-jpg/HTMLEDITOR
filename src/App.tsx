@@ -1576,185 +1576,6 @@ export default function App() {
           className="hidden"
         />
 
-        {/* Primary action */}
-        <div className="flex justify-end mb-12">
-          <button
-            onClick={toggleRegister}
-            className="flex items-center gap-2 px-6 py-3 rounded-full bg-gold text-black text-xs font-semibold tracking-widest uppercase hover:scale-105 transition-transform shadow-gold"
-          >
-            <Plus size={16} />
-            Cadastrar Fornecedor
-          </button>
-        </div>
-
-        {/* Modal Overlay */}
-        <AnimatePresence>
-          {isModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={toggleRegister}
-                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              />
-              
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative w-full max-w-2xl bg-[#121212] border border-gold/30 rounded-[2.5rem] p-8 md:p-12 overflow-y-auto max-h-[90vh] shadow-gold"
-              >
-                <button 
-                  onClick={toggleRegister}
-                  className="absolute top-8 right-8 p-2 rounded-full hover:bg-white/5 text-white/40 hover:text-white transition-colors"
-                >
-                  <X size={24} />
-                </button>
-
-                <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-                  {editingId ? <Edit2 size={160} className="text-gold" /> : <Plus size={160} className="text-gold" />}
-                </div>
-                
-                <h2 className="text-3xl font-display text-white mb-10">{editingId ? 'Editar Fornecedor' : 'Novo Cadastro'}</h2>
-                
-                <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                  <div className="md:col-span-2 flex flex-col items-center mb-6">
-                    <div className="relative group cursor-pointer">
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                      />
-                      <div 
-                        className="w-24 h-24 rounded-full border-2 border-dashed border-gold/30 flex items-center justify-center bg-white/5 transition-all group-hover:border-gold/60 overflow-hidden"
-                      >
-                        {formData.logoUrl ? (
-                          <img src={formData.logoUrl} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="flex flex-col items-center text-gold/40 group-hover:text-gold/60">
-                            <Camera size={24} />
-                            <span className="text-[8px] uppercase tracking-tighter mt-1">Upload</span>
-                          </div>
-                        )}
-                      </div>
-                      {formData.logoUrl && (
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setFormData({...formData, logoUrl: undefined}); }}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 z-30"
-                        >
-                          <X size={12} />
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[9px] uppercase tracking-widest text-white/30 mt-3">Logo ou Foto da Empresa</p>
-                  </div>
-
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">URL da Imagem de Perfil (Opcional)</label>
-                    <input 
-                      type="text" 
-                      placeholder="https://exemplo.com/imagem.jpg"
-                      value={formData.logoUrl || ''}
-                      onChange={e => setFormData({...formData, logoUrl: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Nome da Empresa</label>
-                    <input 
-                      required
-                      type="text" 
-                      placeholder="Ex: Lumiere Boutique"
-                      value={formData.name}
-                      onChange={e => setFormData({...formData, name: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4"> @ Instagram (Ex: @lumiere)</label>
-                    <input
-                      required
-                      type="text"
-                      placeholder="@handle"
-                      value={formData.handle}
-                      onChange={e => {
-                        const v = e.target.value;
-                        const clean = v.replace(/^@+/, '').toLowerCase().trim();
-                        setFormData({...formData, handle: v, instagram: clean});
-                      }}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Categoria</label>
-                    <div className="relative">
-                      <select 
-                        value={formData.category}
-                        onChange={e => setFormData({...formData, category: e.target.value})}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white appearance-none cursor-pointer"
-                      >
-                        {categories.map(cat => (
-                          <option key={cat} className="bg-[#121212]" value={cat}>{cat}</option>
-                        ))}
-                      </select>
-                      <ChevronRight size={16} className="absolute right-6 top-1/2 -translate-y-1/2 text-white/20 rotate-90 pointer-events-none" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Endereço</label>
-                    <input 
-                      required
-                      type="text" 
-                      placeholder="Rua, Número - Cidade/UF"
-                      value={formData.address}
-                      onChange={e => setFormData({...formData, address: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">WhatsApp (Apenas números)</label>
-                    <input 
-                      required
-                      type="text" 
-                      placeholder="5511999999999"
-                      value={formData.whatsapp}
-                      onChange={e => setFormData({...formData, whatsapp: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Instagram User (auto-preenchido)</label>
-                    <input
-                      required
-                      type="text"
-                      placeholder="lumiereboutique"
-                      value={formData.instagram}
-                      onChange={e => {
-                        const clean = e.target.value.replace(/^@+/, '').toLowerCase().trim();
-                        setFormData({...formData, instagram: clean, handle: clean ? `@${clean}` : ''});
-                      }}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-2 pt-8">
-                    <button 
-                      type="submit"
-                      className="w-full bg-gold text-black py-5 rounded-2xl font-bold uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-gold"
-                    >
-                      {editingId ? 'Salvar Alterações' : 'Confirmar Cadastro'}
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
         {/* Results Info */}
         <div className="mb-8 flex items-center justify-between">
           <p className="text-xs text-white/30 tracking-widest uppercase">
@@ -2580,6 +2401,174 @@ export default function App() {
                   </button>
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Register/Edit Supplier Modal (global — usable from Diretório and Configuração) */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={toggleRegister}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-[#121212] border border-gold/30 rounded-[2.5rem] p-8 md:p-12 overflow-y-auto max-h-[90vh] shadow-gold"
+            >
+              <button
+                onClick={toggleRegister}
+                className="absolute top-8 right-8 p-2 rounded-full hover:bg-white/5 text-white/40 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+                {editingId ? <Edit2 size={160} className="text-gold" /> : <Plus size={160} className="text-gold" />}
+              </div>
+
+              <h2 className="text-3xl font-display text-white mb-10">{editingId ? 'Editar Fornecedor' : 'Novo Cadastro'}</h2>
+
+              <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                <div className="md:col-span-2 flex flex-col items-center mb-6">
+                  <div className="relative group cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                    />
+                    <div
+                      className="w-24 h-24 rounded-full border-2 border-dashed border-gold/30 flex items-center justify-center bg-white/5 transition-all group-hover:border-gold/60 overflow-hidden"
+                    >
+                      {formData.logoUrl ? (
+                        <img src={formData.logoUrl} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex flex-col items-center text-gold/40 group-hover:text-gold/60">
+                          <Camera size={24} />
+                          <span className="text-[8px] uppercase tracking-tighter mt-1">Upload</span>
+                        </div>
+                      )}
+                    </div>
+                    {formData.logoUrl && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setFormData({...formData, logoUrl: undefined}); }}
+                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 z-30"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[9px] uppercase tracking-widest text-white/30 mt-3">Logo ou Foto da Empresa</p>
+                </div>
+
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">URL da Imagem de Perfil (Opcional)</label>
+                  <input
+                    type="text"
+                    placeholder="https://exemplo.com/imagem.jpg"
+                    value={formData.logoUrl || ''}
+                    onChange={e => setFormData({...formData, logoUrl: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Nome da Empresa</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="Ex: Lumiere Boutique"
+                    value={formData.name}
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4"> @ Instagram (Ex: @lumiere)</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="@handle"
+                    value={formData.handle}
+                    onChange={e => {
+                      const v = e.target.value;
+                      const clean = v.replace(/^@+/, '').toLowerCase().trim();
+                      setFormData({...formData, handle: v, instagram: clean});
+                    }}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Categoria</label>
+                  <div className="relative">
+                    <select
+                      value={formData.category}
+                      onChange={e => setFormData({...formData, category: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white appearance-none cursor-pointer"
+                    >
+                      {categories.map(cat => (
+                        <option key={cat} className="bg-[#121212]" value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                    <ChevronRight size={16} className="absolute right-6 top-1/2 -translate-y-1/2 text-white/20 rotate-90 pointer-events-none" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Endereço</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="Rua, Número - Cidade/UF"
+                    value={formData.address}
+                    onChange={e => setFormData({...formData, address: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">WhatsApp (Apenas números)</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="5511999999999"
+                    value={formData.whatsapp}
+                    onChange={e => setFormData({...formData, whatsapp: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-4">Instagram User (auto-preenchido)</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="lumiereboutique"
+                    value={formData.instagram}
+                    onChange={e => {
+                      const clean = e.target.value.replace(/^@+/, '').toLowerCase().trim();
+                      setFormData({...formData, instagram: clean, handle: clean ? `@${clean}` : ''});
+                    }}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-gold/50 text-white placeholder:text-white/10"
+                  />
+                </div>
+
+                <div className="md:col-span-2 pt-8">
+                  <button
+                    type="submit"
+                    className="w-full bg-gold text-black py-5 rounded-2xl font-bold uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-gold"
+                  >
+                    {editingId ? 'Salvar Alterações' : 'Confirmar Cadastro'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
