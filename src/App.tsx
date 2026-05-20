@@ -957,10 +957,10 @@ export default function App() {
             <div class="divider"></div>
             ${cardConfig.showIcons ? `
             <div class="social-icons">
-              <a href="https://wa.me/${s.whatsapp}" rel="noopener noreferrer" class="icon-circle">
+              <a href="whatsapp://send?phone=${s.whatsapp}" class="icon-circle">
                 ${getIconSvg(cardConfig.whatsappIcon, cardConfig.whatsappIconUrl, cardConfig.socialIconSize)}
               </a>
-              <a href="https://www.instagram.com/${s.instagram}/" rel="noopener noreferrer" class="icon-circle">
+              <a href="instagram://user?username=${s.instagram}" class="icon-circle">
                 ${getIconSvg(cardConfig.instagramIcon, cardConfig.instagramIconUrl, cardConfig.socialIconSize)}
               </a>
             </div>
