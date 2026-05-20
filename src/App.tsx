@@ -334,7 +334,7 @@ const SupplierCard = memo(function SupplierCard({
           >
             {supplier.handle}
           </span>
-          <h3 className="text-2xl font-display font-normal text-white mb-4 tracking-tight leading-tight text-center">
+          <h3 className="text-2xl font-display font-normal text-white mb-4 tracking-tight leading-tight text-center transition-[filter] duration-200" style={{ filter: config.privacyBlur ? `blur(${config.privacyBlur * 0.12}px)` : undefined }}>
             {supplier.name}
           </h3>
           
@@ -1165,7 +1165,7 @@ export default function App() {
     .logo-text { color: ${cardConfig.iconColor}; font-size: 36px; font-weight: 300; }
     .info { flex-grow: 1; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; }
     .handle { font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.3em; color: ${cardConfig.iconColor}80; margin-bottom: 8px; filter: blur(${(cardConfig.privacyBlur || 0) * 0.12}px); }
-    .name { font-size: 24px; margin-bottom: 16px; color: #FFFFFF; }
+    .name { font-size: 24px; margin-bottom: 16px; color: #FFFFFF; filter: blur(${(cardConfig.privacyBlur || 0) * 0.12}px); }
     .divider { height: 1px; width: 96px; background: linear-gradient(to right, transparent, ${cardConfig.iconColor}66, transparent); margin-bottom: 24px; }
     .social-icons { display: flex; gap: 16px; margin-bottom: 24px; }
     .icon-circle {
@@ -2372,7 +2372,7 @@ export default function App() {
                         onChange={e => updateConfig({privacyBlur: parseInt(e.target.value)})}
                         className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                       />
-                      <p className="text-[9px] text-white/30 leading-relaxed">Borra foto, @ e endereço dos cards. Útil para gravar vídeo sem expor contatos. Volte a 0% depois.</p>
+                      <p className="text-[9px] text-white/30 leading-relaxed">Borra foto, nome, @ e endereço dos cards. Útil para gravar vídeo sem expor contatos. Volte a 0% depois.</p>
                     </div>
 
                     <div className="space-y-3">
