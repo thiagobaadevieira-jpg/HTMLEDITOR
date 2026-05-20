@@ -755,23 +755,35 @@ export default function App() {
         let imported = 0;
         let failed = 0;
         let failedReason: string | undefined;
+        const insertedRows: DbSupplier[] = [];
 
         if (rowsToInsert.length > 0) {
-          const { data: inserted, error } = await supabase
-            .from('suppliers')
-            .insert(rowsToInsert)
-            .select();
+          // Try batch insert first (fast path)
+          const batch = await supabase.from('suppliers').insert(rowsToInsert).select();
 
-          if (error) {
-            console.error('[import suppliers]', error);
-            failed = rowsToInsert.length;
-            failedReason = error.message;
-          } else if (inserted) {
-            imported = inserted.length;
-            setSuppliers(prev => [...inserted.map(dbToSupplier), ...prev]);
+          if (!batch.error && batch.data) {
+            imported = batch.data.length;
+            insertedRows.push(...batch.data);
+          } else {
+            // Batch failed — fall back to one-by-one to isolate bad rows
+            console.error('[import batch failed, retrying row-by-row]', batch.error);
+            for (const row of rowsToInsert) {
+              const single = await supabase.from('suppliers').insert(row).select().single();
+              if (single.error) {
+                failed++;
+                if (!failedReason) failedReason = `Linha "${row.name}": ${single.error.message}`;
+                console.error('[import row failed]', row.name, single.error);
+              } else if (single.data) {
+                imported++;
+                insertedRows.push(single.data);
+              }
+            }
+          }
 
-            // create any new categories found
-            const newCatsFound = Array.from(new Set(rowsToInsert.map(r => r.category)));
+          if (insertedRows.length > 0) {
+            setSuppliers(prev => [...insertedRows.map(dbToSupplier), ...prev]);
+
+            const newCatsFound = Array.from(new Set(insertedRows.map(r => r.category)));
             const brandNewCats = newCatsFound.filter(c => !categories.includes(c));
             if (brandNewCats.length > 0) {
               const { error: catError } = await supabase.from('categories')
