@@ -1198,7 +1198,7 @@ export default function App() {
     <div class="search-section">
       <div class="search-wrapper">
         <svg class="search-svg" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><use xlink:href="#icon-Search"></use></svg>
-        <input type="text" id="searchInput" class="search-input" placeholder="Pesquisar por nome ou código ID...">
+        <input type="text" id="searchInput" class="search-input" placeholder="Pesquisar por nome ou código ID..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" id="searchClear" class="search-clear" aria-label="Limpar busca">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -1302,6 +1302,16 @@ export default function App() {
       applyFilter('');
       searchInput.focus();
     });
+
+    // Sempre começar com campo vazio — limpa imediatamente e também quando a página
+    // é restaurada do bfcache (iOS/Android, ao voltar pra tela)
+    function resetSearch() {
+      searchInput.value = '';
+      searchClear.classList.remove('visible');
+      applyFilter('');
+    }
+    resetSearch();
+    window.addEventListener('pageshow', resetSearch);
   </script>
 </body>
 </html>
