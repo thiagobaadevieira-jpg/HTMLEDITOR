@@ -1385,7 +1385,13 @@ export default function App() {
   </script>
 </body>
 </html>
-    `;
+    `
+      // Minify: remove leading/trailing whitespace per line + collapse multiple spaces
+      // (safe enough — doesn't touch content of strings or attributes)
+      .replace(/\n\s+/g, '\n')          // tira indentação
+      .replace(/\n{2,}/g, '\n')          // tira linhas vazias duplas
+      .replace(/>\s+</g, '><')           // remove espaços entre tags
+      .replace(/ {2,}/g, ' ');           // colapsa múltiplos espaços em um
 
     if (mode === 'copy') {
       try {
