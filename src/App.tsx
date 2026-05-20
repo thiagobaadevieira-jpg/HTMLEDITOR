@@ -527,7 +527,7 @@ export default function App() {
     duplicates: number;
     duplicateNames: string[];
     failed: number;
-    failedReason?: string;
+    failedRows: Array<{ name: string; reason: string }>;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bulkImageInputRef = useRef<HTMLInputElement>(null);
@@ -738,6 +738,9 @@ export default function App() {
           const isDuplicate = existingNames.has(name.toLowerCase()) || (instagram && existingHandles.has(instagram));
           if (isDuplicate) { duplicates.push(name); return; }
 
+          // Get the first GRAPHEME (full code point) so SMP chars (e.g. 𝓛𝓸𝓿𝓮) don't
+          // leave a lone surrogate in `logo` and break JSON serialization.
+          const firstChar = (Array.from(name.normalize('NFKD'))[0] || 'S').toUpperCase();
           rowsToInsert.push({
             name,
             handle: instagram ? `@${instagram}` : '',
@@ -745,7 +748,7 @@ export default function App() {
             address,
             whatsapp,
             instagram,
-            logo: name.charAt(0).toUpperCase() || 'S',
+            logo: firstChar,
             logo_url,
           });
           existingNames.add(name.toLowerCase());
@@ -754,7 +757,7 @@ export default function App() {
 
         let imported = 0;
         let failed = 0;
-        let failedReason: string | undefined;
+        const failedRows: Array<{ name: string; reason: string }> = [];
         const insertedRows: DbSupplier[] = [];
 
         if (rowsToInsert.length > 0) {
@@ -771,7 +774,7 @@ export default function App() {
               const single = await supabase.from('suppliers').insert(row).select().single();
               if (single.error) {
                 failed++;
-                if (!failedReason) failedReason = `Linha "${row.name}": ${single.error.message}`;
+                failedRows.push({ name: row.name, reason: single.error.message });
                 console.error('[import row failed]', row.name, single.error);
               } else if (single.data) {
                 imported++;
@@ -799,7 +802,7 @@ export default function App() {
           duplicates: duplicates.length,
           duplicateNames: duplicates.slice(0, 5),
           failed,
-          failedReason,
+          failedRows,
         });
       } catch (err: any) {
         console.error('[import excel]', err);
@@ -808,7 +811,7 @@ export default function App() {
           duplicates: 0,
           duplicateNames: [],
           failed: 1,
-          failedReason: err?.message || 'Erro ao ler o arquivo Excel',
+          failedRows: [{ name: 'Arquivo', reason: err?.message || 'Erro ao ler o arquivo Excel' }],
         });
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -2544,10 +2547,17 @@ export default function App() {
                   </div>
                 </div>
 
-                {importResult.failedReason && (
-                  <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-4 mb-6 text-left">
-                    <p className="text-[10px] uppercase tracking-widest text-red-400/70 mb-2">Motivo da falha:</p>
-                    <p className="text-xs text-white/70 break-words">{importResult.failedReason}</p>
+                {importResult.failedRows.length > 0 && (
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-4 mb-6 text-left max-h-48 overflow-y-auto">
+                    <p className="text-[10px] uppercase tracking-widest text-red-400/70 mb-2">Falhas:</p>
+                    <ul className="space-y-2">
+                      {importResult.failedRows.map((f, i) => (
+                        <li key={i} className="text-xs">
+                          <span className="text-white/80 font-medium">• {f.name}</span>
+                          <span className="block text-white/40 text-[10px] ml-3 break-words">{f.reason}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
