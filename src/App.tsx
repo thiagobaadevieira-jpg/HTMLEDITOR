@@ -1793,9 +1793,9 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsCategoryDropdownOpen(v => !v)}
-              className={`w-full bg-white/5 border rounded-2xl pl-14 pr-12 py-5 text-white text-sm outline-none transition-all cursor-pointer uppercase tracking-widest h-full text-left ${
-                isCategoryDropdownOpen ? 'border-gold/50' : 'border-white/10 hover:border-white/20'
-              }`}
+              className={`w-full bg-white/5 border rounded-2xl pl-14 py-5 text-white text-sm outline-none transition-all cursor-pointer uppercase tracking-widest h-full text-left ${
+                selectedCategory !== 'Todos' ? 'pr-20' : 'pr-12'
+              } ${isCategoryDropdownOpen ? 'border-gold/50' : 'border-white/10 hover:border-white/20'}`}
             >
               <Folder size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
               <span className="block truncate">{selectedCategory}</span>
@@ -1806,6 +1806,21 @@ export default function App() {
                 }`}
               />
             </button>
+
+            {selectedCategory !== 'Todos' && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedCategory('Todos');
+                  setIsCategoryDropdownOpen(false);
+                }}
+                title="Limpar categoria"
+                className="absolute right-12 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-white/30 hover:text-white hover:bg-white/10 transition-all z-10"
+              >
+                <X size={14} />
+              </button>
+            )}
 
             <AnimatePresence>
               {isCategoryDropdownOpen && (
