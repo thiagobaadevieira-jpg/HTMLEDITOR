@@ -930,8 +930,8 @@ export default function App() {
       return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><use xlink:href="#icon-${name}"></use></svg>`;
     };
 
-    const cardsHtml = suppliersToExport.map(s => `
-      <div class="card-wrapper" data-name="${s.name}" data-id="${s.numericId}">
+    const cardsHtml = suppliersToExport.map((s, i) => `
+      <div class="card-wrapper${i >= 5 ? ' lazy-hidden' : ''}" data-name="${s.name}" data-id="${s.numericId}">
         <div class="glow"></div>
         <div class="card">
           <div class="overlay"></div>
@@ -941,7 +941,7 @@ export default function App() {
             <div class="logo-ring-wrapper">
               <div class="logo-inner">
                 ${s.logoUrl ? `
-                  <img src="${s.logoUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
+                  <img src="${s.logoUrl}" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
                 ` : `
                   <span class="logo-text">${s.logo}</span>
                 `}
@@ -1084,7 +1084,8 @@ export default function App() {
       height: 100%;
       transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s ease;
     }
-    .card-wrapper.hidden {
+    .card-wrapper.hidden,
+    .card-wrapper.lazy-hidden {
       display: none;
     }
     .card-wrapper:hover {
@@ -1205,6 +1206,7 @@ export default function App() {
     <div class="grid" id="cardGrid">
       ${cardsHtml}
     </div>
+    <div id="lazy-sentinel" style="height: 1px; width: 100%;"></div>
 
     <footer style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding: 64px 0; margin-top: 80px; width: 100%;">
       <div style="display: flex; flex-direction: column; align-items: center; gap: 32px; justify-content: space-between;">
@@ -1226,16 +1228,49 @@ export default function App() {
   <script>
     const searchInput = document.getElementById('searchInput');
     const searchClear = document.getElementById('searchClear');
-    const cards = document.getElementsByClassName('card-wrapper');
+    const cards = Array.from(document.getElementsByClassName('card-wrapper'));
+    const sentinel = document.getElementById('lazy-sentinel');
+
+    const BATCH = 5;
+    let visibleCount = Math.min(BATCH, cards.length);
+    let isSearching = false;
+
+    function revealMore() {
+      if (isSearching || visibleCount >= cards.length) return;
+      const newCount = Math.min(visibleCount + BATCH, cards.length);
+      for (let i = visibleCount; i < newCount; i++) {
+        cards[i].classList.remove('lazy-hidden');
+      }
+      visibleCount = newCount;
+    }
+
+    // Auto-load more cards when sentinel scrolls into view
+    if (sentinel && 'IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => { if (entry.isIntersecting) revealMore(); });
+      }, { rootMargin: '300px' });
+      observer.observe(sentinel);
+    } else {
+      // Fallback: reveal all if IntersectionObserver not supported
+      cards.forEach(c => c.classList.remove('lazy-hidden'));
+      visibleCount = cards.length;
+    }
 
     function applyFilter(term) {
-      Array.from(cards).forEach(card => {
+      isSearching = term.length > 0;
+      cards.forEach((card, i) => {
         const name = card.getAttribute('data-name').toLowerCase();
         const id = card.getAttribute('data-id').toLowerCase();
-        if (name.includes(term) || id.includes(term)) {
-          card.classList.remove('hidden');
+        const matches = !term || name.includes(term) || id.includes(term);
+
+        if (isSearching) {
+          // Show ALL matches (override lazy state)
+          card.classList.remove('lazy-hidden');
+          card.classList.toggle('hidden', !matches);
         } else {
-          card.classList.add('hidden');
+          // Restore lazy behavior
+          card.classList.remove('hidden');
+          card.classList.toggle('lazy-hidden', i >= visibleCount);
         }
       });
     }
