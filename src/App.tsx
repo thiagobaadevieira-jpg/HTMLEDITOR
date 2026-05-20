@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback, memo, startTransition } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
-import { supabase, uploadLogo, dataUrlToStorageUrl, type DbSupplier, type DbCardConfig } from './lib/supabase';
+import { supabase, uploadLogo, dataUrlToStorageUrl, type DbSupplier, type DbCardConfig, type DbProfile, type DbBanner } from './lib/supabase';
 import { 
   Instagram, 
   MessageCircle, 
@@ -41,7 +41,12 @@ import {
   User,
   AlertTriangle,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Home,
+  Heart,
+  ChevronLeft,
+  Phone as PhoneIcon,
+  Lock
 } from 'lucide-react';
 
 // Custom WhatsApp brand logo (filled style; color follows currentColor)
@@ -505,6 +510,17 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [signupName, setSignupName] = useState('');
+  const [signupPhone, setSignupPhone] = useState('');
+
+  const [profile, setProfile] = useState<DbProfile | null>(null);
+  const isAdmin = profile?.role === 'admin';
+
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [clientTab, setClientTab] = useState<'home' | 'favorites' | 'profile'>('home');
+  const [showSuppliersList, setShowSuppliersList] = useState(false);
+  const [banners, setBanners] = useState<DbBanner[]>([]);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -577,6 +593,61 @@ export default function App() {
     if (error) setLoginError('E-mail ou senha incorretos.');
     setLoginLoading(false);
   };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginError('');
+    const { error } = await supabase.auth.signUp({
+      email: loginEmail,
+      password: loginPassword,
+      options: { data: { name: signupName, phone: signupPhone } },
+    });
+    if (error) setLoginError(error.message);
+    else {
+      // Tenta logar imediatamente (caso confirmação por e-mail esteja desativada)
+      await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+    }
+    setLoginLoading(false);
+  };
+
+  // Load profile + favorites + banners when session changes
+  useEffect(() => {
+    if (!session) {
+      setProfile(null);
+      setFavorites(new Set());
+      setBanners([]);
+      return;
+    }
+    (async () => {
+      const [profRes, favRes, banRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+        supabase.from('favorites').select('supplier_id').eq('user_id', session.user.id),
+        supabase.from('banners').select('*').order('order_index'),
+      ]);
+      if (profRes.data) setProfile(profRes.data);
+      if (favRes.data) setFavorites(new Set(favRes.data.map((f: { supplier_id: string }) => f.supplier_id)));
+      if (banRes.data) setBanners(banRes.data);
+    })();
+  }, [session]);
+
+  const toggleFavorite = useCallback(async (supplierId: string) => {
+    if (!session) return;
+    const userId = session.user.id;
+    const isFav = favorites.has(supplierId);
+    // Optimistic update
+    setFavorites(prev => {
+      const next = new Set(prev);
+      if (isFav) next.delete(supplierId);
+      else next.add(supplierId);
+      return next;
+    });
+    if (isFav) {
+      await supabase.from('favorites').delete().eq('user_id', userId).eq('supplier_id', supplierId);
+    } else {
+      await supabase.from('favorites').insert({ user_id: userId, supplier_id: supplierId });
+    }
+  }, [session, favorites]);
 
   // Batched config update with startTransition — keeps sliders/pickers 60fps
   const updateConfig = useCallback((updates: Partial<CardConfig>) => {
@@ -1421,28 +1492,83 @@ export default function App() {
             style={{ borderColor: '#C89A6240', backgroundColor: '#C89A620d' }}>
             <ShoppingBag size={28} style={{ color: '#C89A62' }} />
           </div>
-          <h1 className="text-2xl font-display text-white mb-2 tracking-tight">Acesso Restrito</h1>
+          <h1 className="text-2xl font-display text-white mb-2 tracking-tight">
+            {authMode === 'login' ? 'Bem-vindo' : 'Criar Conta'}
+          </h1>
           <p className="text-[11px] uppercase tracking-[0.3em] text-white/30">Diretório de Fornecedores</p>
         </div>
 
         {/* Card */}
-        <div className="border border-white/5 rounded-[2rem] p-8 md:p-10" style={{ backgroundColor: '#121212' }}>
+        <div className="border border-white/5 rounded-[2rem] p-8 md:p-10 relative overflow-hidden" style={{ backgroundColor: '#121212' }}>
           {/* Top glow line */}
           <div className="absolute top-0 left-1/4 right-1/4 h-px rounded-full"
             style={{ background: 'linear-gradient(to right, transparent, #C89A6266, transparent)' }} />
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          {/* Tabs */}
+          <div className="flex gap-1 mb-8 bg-white/5 rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => { setAuthMode('login'); setLoginError(''); }}
+              className={`flex-1 py-2.5 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all ${
+                authMode === 'login' ? 'bg-gold text-black' : 'text-white/40 hover:text-white/70'
+              }`}
+            >
+              Entrar
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMode('signup'); setLoginError(''); }}
+              className={`flex-1 py-2.5 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all ${
+                authMode === 'signup' ? 'bg-gold text-black' : 'text-white/40 hover:text-white/70'
+              }`}
+            >
+              Cadastrar
+            </button>
+          </div>
+
+          <form onSubmit={authMode === 'login' ? handleLogin : handleSignup} className="space-y-4">
+            {authMode === 'signup' && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1">Nome Completo</label>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    placeholder="Seu nome"
+                    value={signupName}
+                    onChange={e => setSignupName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 outline-none text-white placeholder:text-white/10 text-sm transition-colors"
+                    onFocus={e => (e.target.style.borderColor = '#C89A6280')}
+                    onBlur={e => (e.target.style.borderColor = '')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1">Telefone (com DDD)</label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="(11) 99999-9999"
+                    value={signupPhone}
+                    onChange={e => setSignupPhone(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 outline-none text-white placeholder:text-white/10 text-sm transition-colors"
+                    onFocus={e => (e.target.style.borderColor = '#C89A6280')}
+                    onBlur={e => (e.target.style.borderColor = '')}
+                  />
+                </div>
+              </>
+            )}
+
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1">E-mail</label>
               <input
                 type="email"
                 required
-                autoFocus
+                autoFocus={authMode === 'login'}
                 placeholder="seu@email.com"
                 value={loginEmail}
                 onChange={e => setLoginEmail(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 outline-none text-white placeholder:text-white/10 text-sm transition-colors"
-                style={{ '--tw-ring-color': '#C89A62' } as any}
                 onFocus={e => (e.target.style.borderColor = '#C89A6280')}
                 onBlur={e => (e.target.style.borderColor = '')}
               />
@@ -1454,6 +1580,7 @@ export default function App() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  minLength={6}
                   placeholder="••••••••"
                   value={loginPassword}
                   onChange={e => setLoginPassword(e.target.value)}
@@ -1466,9 +1593,7 @@ export default function App() {
                   onClick={() => setShowPassword(v => !v)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 transition-colors"
                 >
-                  {showPassword
-                    ? <ExternalLink size={16} />
-                    : <ExternalLink size={16} style={{ opacity: 0.4 }} />}
+                  <Lock size={16} style={{ opacity: showPassword ? 1 : 0.4 }} />
                 </button>
               </div>
             </div>
@@ -1479,10 +1604,10 @@ export default function App() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="flex items-center gap-2 text-red-400/80 text-xs px-1"
+                  className="flex items-start gap-2 text-red-400/80 text-xs px-1"
                 >
-                  <AlertTriangle size={14} />
-                  {loginError}
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                  <span>{loginError}</span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1493,7 +1618,9 @@ export default function App() {
               className="w-full py-4 rounded-2xl text-black text-xs font-bold uppercase tracking-[0.2em] transition-all mt-2 disabled:opacity-50"
               style={{ backgroundColor: '#C89A62', boxShadow: '0 0 30px #C89A6240' }}
             >
-              {loginLoading ? 'Entrando...' : 'Entrar'}
+              {loginLoading
+                ? (authMode === 'login' ? 'Entrando...' : 'Criando conta...')
+                : (authMode === 'login' ? 'Entrar' : 'Criar Conta')}
             </button>
           </form>
         </div>
