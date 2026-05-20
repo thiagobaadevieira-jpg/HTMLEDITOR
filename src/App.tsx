@@ -211,12 +211,18 @@ const SupplierCard = memo(function SupplierCard({
   supplier,
   onDelete,
   onEdit,
-  config
+  config,
+  isFavorite,
+  onToggleFavorite,
+  showAdminActions,
 }: {
   supplier: Supplier;
   onDelete: (id: string) => void;
   onEdit: (supplier: Supplier) => void;
   config: CardConfig;
+  isFavorite?: boolean;
+  onToggleFavorite?: (id: string) => void;
+  showAdminActions?: boolean;
 }) {
   const WhatsAppIcon = (ICON_COMPONENTS as any)[config.whatsappIcon] || MessageCircle;
   const InstaIcon = (ICON_COMPONENTS as any)[config.instagramIcon] || Instagram;
@@ -264,21 +270,38 @@ const SupplierCard = memo(function SupplierCard({
           padding: `${config.padding}px`
         }}
       >
-        {/* Actions Overlay */}
+        {/* Favorite (top-left, always visible) */}
+        {onToggleFavorite && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(supplier.id); }}
+            className={`absolute top-6 left-6 z-20 p-2 rounded-full backdrop-blur-sm border transition-all ${
+              isFavorite
+                ? 'bg-red-500/15 border-red-500/40 text-red-400'
+                : 'bg-black/40 border-white/10 text-white/40 hover:text-red-400 hover:bg-red-500/10'
+            }`}
+            title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+          >
+            <Heart size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+          </button>
+        )}
+
+        {/* Admin Actions Overlay (top-right) */}
+        {showAdminActions && (<>
         <div className="absolute top-6 right-6 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button 
+          <button
             onClick={() => onEdit(supplier)}
             className="p-2 rounded-full bg-black/50 border border-white/10 text-white/60 hover:text-gold transition-colors"
           >
             <Edit2 size={14} />
           </button>
-          <button 
+          <button
             onClick={() => onDelete(supplier.id)}
             className="p-2 rounded-full bg-black/50 border border-white/10 text-white/60 hover:text-red-400 transition-colors"
           >
             <Trash2 size={14} />
           </button>
         </div>
+        </>)}
 
         {/* Subtle Texture/Gradient Overlay */}
         <div 
@@ -1630,11 +1653,264 @@ export default function App() {
 
   if (loading) return loadingScreen;
 
+  // ==================== CLIENT VIEW (non-admin) ====================
+  if (!isAdmin) {
+    const heroBanners = banners.filter(b => b.type === 'hero' && b.is_active);
+    const sectionBanners = banners.filter(b => b.type === 'section' && b.is_active);
+    const favoriteSuppliers = suppliers.filter(s => favorites.has(s.id));
+
+    const bottomNav = (
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0A0A0A] border-t border-white/5 backdrop-blur-md">
+        <div className="max-w-2xl mx-auto flex">
+          {([
+            { id: 'home', label: 'Home', icon: Home },
+            { id: 'favorites', label: 'Favoritos', icon: Heart },
+            { id: 'profile', label: 'Perfil', icon: User },
+          ] as const).map(item => {
+            const Ico = item.icon;
+            const active = clientTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => { setClientTab(item.id); setShowSuppliersList(false); }}
+                className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${active ? 'text-gold' : 'text-white/40 hover:text-white/70'}`}
+              >
+                <Ico size={22} fill={active && item.id === 'favorites' ? 'currentColor' : 'none'} />
+                <span className="text-[10px] uppercase tracking-widest font-bold">{item.label}</span>
+                {active && <div className="absolute top-0 w-12 h-0.5 bg-gold rounded-full" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="min-h-screen font-sans selection:bg-gold/30 selection:text-white pb-24" style={{ backgroundColor: cardConfig.pageBackgroundColor }}>
+        <main className="w-full max-w-2xl mx-auto px-4 py-6 md:py-8">
+
+          {/* HOME */}
+          {clientTab === 'home' && !showSuppliersList && (
+            <>
+              {/* Hero Carousel */}
+              {heroBanners.length > 0 && (
+                <div className="mb-6 flex overflow-x-auto snap-x snap-mandatory gap-3 -mx-4 px-4 [&::-webkit-scrollbar]:hidden">
+                  {heroBanners.map(b => (
+                    <a
+                      key={b.id}
+                      href={b.link_url || undefined}
+                      target={b.link_url ? '_blank' : undefined}
+                      rel="noopener"
+                      className="snap-center shrink-0 w-[88%] aspect-[16/9] rounded-2xl overflow-hidden bg-white/5 border border-white/10"
+                    >
+                      {b.image_url
+                        ? <img src={b.image_url} alt={b.title} className="w-full h-full object-cover" loading="lazy" />
+                        : <div className="w-full h-full flex items-center justify-center text-white/20 text-xs uppercase tracking-widest">Sem imagem</div>}
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {/* Card "Lista de Fornecedores" — sempre primeiro */}
+              <button
+                onClick={() => setShowSuppliersList(true)}
+                className="w-full mb-4 rounded-2xl overflow-hidden bg-white/5 border border-white/10 hover:border-gold/30 transition-all text-left"
+              >
+                <div className="aspect-[16/9] bg-gradient-to-br from-gold/20 to-black flex items-center justify-center relative">
+                  {sectionBanners.find(b => b.title === 'Lista de Fornecedores')?.image_url ? (
+                    <img src={sectionBanners.find(b => b.title === 'Lista de Fornecedores')!.image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <ShoppingBag size={48} className="text-gold/40" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-4">
+                    <div className="text-[10px] uppercase tracking-[0.3em] text-gold mb-1">Catálogo</div>
+                    <h3 className="text-xl font-display text-white">Lista de Fornecedores</h3>
+                    <p className="text-xs text-white/60 mt-1">{suppliers.length} fornecedores cadastrados</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Cards extras (outros banners section) */}
+              {sectionBanners.filter(b => b.title !== 'Lista de Fornecedores').map(b => (
+                <a
+                  key={b.id}
+                  href={b.link_url || undefined}
+                  target={b.link_url ? '_blank' : undefined}
+                  rel="noopener"
+                  className="block w-full mb-4 rounded-2xl overflow-hidden bg-white/5 border border-white/10 hover:border-gold/30 transition-all"
+                >
+                  <div className="aspect-[16/9] relative bg-white/5">
+                    {b.image_url
+                      ? <img src={b.image_url} alt={b.title} className="w-full h-full object-cover" loading="lazy" />
+                      : <div className="w-full h-full flex items-center justify-center text-white/20 text-xs uppercase tracking-widest">Sem imagem</div>}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-4">
+                      <h3 className="text-xl font-display text-white">{b.title}</h3>
+                      {b.subtitle && <p className="text-xs text-white/60 mt-1">{b.subtitle}</p>}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </>
+          )}
+
+          {/* Lista de Fornecedores aberta */}
+          {clientTab === 'home' && showSuppliersList && (
+            <>
+              <button
+                onClick={() => setShowSuppliersList(false)}
+                className="flex items-center gap-2 text-white/60 hover:text-gold text-xs uppercase tracking-widest mb-6"
+              >
+                <ChevronLeft size={16} /> Voltar
+              </button>
+
+              {/* Search + Category */}
+              <div className="mb-6 flex flex-col gap-3">
+                <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-5">
+                  <Search className="text-white/20" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Pesquisar..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full bg-transparent border-none outline-none py-4 px-3 text-white text-sm placeholder:text-white/10"
+                  />
+                  {searchTerm && (
+                    <button onClick={() => setSearchTerm('')} className="p-2 text-white/30 hover:text-white/60">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <div className="relative" ref={categoryDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryDropdownOpen(v => !v)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white text-sm text-left uppercase tracking-widest hover:border-white/20"
+                  >
+                    <Folder size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
+                    {selectedCategory}
+                    <ChevronRight size={14} className={`absolute right-4 top-1/2 -translate-y-1/2 text-white/30 transition-transform ${isCategoryDropdownOpen ? '-rotate-90' : 'rotate-90'}`} />
+                  </button>
+                  <AnimatePresence>
+                    {isCategoryDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="absolute top-full left-0 right-0 mt-2 z-50 bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-2xl max-h-80 overflow-y-auto py-2"
+                      >
+                        {allCategories.map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => { setSelectedCategory(cat); setIsCategoryDropdownOpen(false); }}
+                            className={`w-full text-left px-5 py-3 text-xs uppercase tracking-widest ${cat === selectedCategory ? 'bg-gold/10 text-gold' : 'text-white/60 hover:bg-white/5'}`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <AnimatePresence mode="sync">
+                  {filteredSuppliers.map(s => (
+                    <SupplierCard
+                      key={s.id}
+                      supplier={s}
+                      onDelete={() => {}}
+                      onEdit={() => {}}
+                      config={cardConfig}
+                      isFavorite={favorites.has(s.id)}
+                      onToggleFavorite={toggleFavorite}
+                      showAdminActions={false}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+              {filteredSuppliers.length === 0 && (
+                <p className="py-16 text-center text-white/40 text-sm">Nenhum fornecedor encontrado.</p>
+              )}
+            </>
+          )}
+
+          {/* FAVORITOS */}
+          {clientTab === 'favorites' && (
+            <>
+              <h2 className="text-2xl font-display text-white mb-2">Meus Favoritos</h2>
+              <p className="text-xs text-white/40 uppercase tracking-widest mb-8">{favoriteSuppliers.length} {favoriteSuppliers.length === 1 ? 'fornecedor' : 'fornecedores'}</p>
+              {favoriteSuppliers.length === 0 ? (
+                <div className="py-20 text-center">
+                  <Heart size={48} className="text-white/10 mx-auto mb-4" />
+                  <p className="text-white/40 text-sm">Você ainda não favoritou nenhum fornecedor.</p>
+                  <p className="text-white/20 text-xs mt-2">Toque no coração de um card para favoritar.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {favoriteSuppliers.map(s => (
+                    <SupplierCard
+                      key={s.id}
+                      supplier={s}
+                      onDelete={() => {}}
+                      onEdit={() => {}}
+                      config={cardConfig}
+                      isFavorite={true}
+                      onToggleFavorite={toggleFavorite}
+                      showAdminActions={false}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* PERFIL */}
+          {clientTab === 'profile' && (
+            <>
+              <h2 className="text-2xl font-display text-white mb-8">Meu Perfil</h2>
+
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-8 mb-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-16 h-16 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center">
+                    <span className="text-2xl font-display text-gold">{(profile?.name || session?.user.email || '?').charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-bold truncate">{profile?.name || '—'}</div>
+                    <div className="text-white/40 text-xs truncate">{session?.user.email}</div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center gap-3">
+                    <PhoneIcon size={14} className="text-white/30 shrink-0" />
+                    <span className="text-white/70">{profile?.phone || 'Não informado'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 text-white/60 hover:text-red-400 hover:bg-red-500/5 hover:border-red-500/30 transition-all text-xs font-bold uppercase tracking-widest"
+              >
+                Sair da Conta
+              </button>
+            </>
+          )}
+        </main>
+
+        {bottomNav}
+      </div>
+    );
+  }
+
+  // ==================== ADMIN VIEW ====================
   return (
     <div className="min-h-screen font-sans selection:bg-gold/30 selection:text-white transition-colors duration-500" style={{ backgroundColor: cardConfig.pageBackgroundColor }}>
       {/* Main Content */}
       <main className="w-full max-w-[1800px] mx-auto px-6 py-8 md:py-12">
-        
+
         {/* Navigation Tabs */}
         <nav className="flex justify-center gap-8 mb-16 border-b border-white/5 relative">
           <button 
@@ -1818,6 +2094,9 @@ export default function App() {
                 onDelete={handleDelete}
                 onEdit={handleEdit}
                 config={cardConfig}
+                isFavorite={favorites.has(supplier.id)}
+                onToggleFavorite={toggleFavorite}
+                showAdminActions={isAdmin}
               />
             ))}
           </AnimatePresence>
