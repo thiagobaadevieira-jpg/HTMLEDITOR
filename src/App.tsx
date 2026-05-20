@@ -1208,9 +1208,14 @@ export default function App() {
       </div>
     </div>
 
-    <div style="display: flex; align-items: center; gap: 24px; margin-bottom: 64px;">
-      <h2 style="font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4em; color: rgba(255, 255, 255, 0.3); flex-shrink: 0;">Catálogo de Fornecedores${selectedCategory !== 'Todos' ? ` - ${selectedCategory}` : ''}</h2>
-      <div style="height: 1px; width: 100%; background: linear-gradient(to right, ${cardConfig.iconColor}4d, transparent);"></div>
+    <div style="margin-bottom: 48px;">
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <h2 style="font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4em; color: rgba(255, 255, 255, 0.3); margin: 0; white-space: nowrap;">Catálogo de Fornecedores</h2>
+        <div style="height: 1px; flex: 1; background: linear-gradient(to right, ${cardConfig.iconColor}4d, transparent);"></div>
+      </div>
+      ${selectedCategory !== 'Todos' ? `
+      <div style="font-size: 14px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.25em; color: ${cardConfig.iconColor}; margin-top: 12px; word-break: break-word;">${selectedCategory}</div>
+      ` : ''}
     </div>
     
     <div class="grid" id="cardGrid">
