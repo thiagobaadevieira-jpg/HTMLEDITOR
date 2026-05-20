@@ -20,6 +20,34 @@ export interface DbSupplier {
   updated_at: string
 }
 
+export interface DbProfile {
+  id: string
+  name: string
+  phone: string
+  role: 'admin' | 'client'
+  created_at: string
+  updated_at: string
+}
+
+export interface DbBanner {
+  id: string
+  type: 'hero' | 'section'
+  image_url: string
+  title: string
+  subtitle: string
+  link_url: string
+  order_index: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface DbFavorite {
+  user_id: string
+  supplier_id: string
+  created_at: string
+}
+
 export interface DbCardConfig {
   id: string
   border_radius: number
