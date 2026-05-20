@@ -303,8 +303,8 @@ const SupplierCard = memo(function SupplierCard({
         
         {/* Logo Section (outer wrapper — no blur, holds lock overlay) */}
         <div className="relative z-10 w-[120px] h-[120px] mb-8">
-          {/* Inner — receives the blur */}
-          <div className="absolute inset-0 transition-[filter] duration-200" style={{ filter: config.privacyBlur ? `blur(${config.privacyBlur * 0.12}px)` : undefined }}>
+          {/* Inner — receives the blur (clipped to circle to avoid square halo) */}
+          <div className="absolute inset-0 rounded-full overflow-hidden transition-[filter] duration-200" style={{ filter: config.privacyBlur ? `blur(${config.privacyBlur * 0.12}px)` : undefined }}>
             <div
               className="absolute inset-0 rounded-full flex items-center justify-center transition-all"
               style={{
@@ -1206,7 +1206,7 @@ export default function App() {
       color: rgba(255, 255, 255, 0.3);
     }
     .logo-container { width: 120px; height: 120px; margin-bottom: 32px; position: relative; }
-    .logo-blur-wrapper { position: absolute; inset: 0; filter: blur(${(cardConfig.privacyBlur || 0) * 0.12}px); }
+    .logo-blur-wrapper { position: absolute; inset: 0; filter: blur(${(cardConfig.privacyBlur || 0) * 0.12}px); border-radius: 50%; overflow: hidden; }
     .lock-overlay {
       position: absolute;
       inset: 0;
