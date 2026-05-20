@@ -1532,75 +1532,38 @@ export default function App() {
 
         {activeTab === 'directory' ? (
           <>
-            {/* Categories / Folders Section */}
-        <div className="mb-16">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-white/40 text-[10px] uppercase tracking-[0.4em] font-semibold">Categorias</h2>
-            <button 
-              onClick={() => setIsAddingCategory(!isAddingCategory)}
-              className="p-2 rounded-full hover:bg-white/5 text-gold/60 hover:text-gold transition-colors"
-              title="Nova Categoria"
+            {/* Add Category Form (collapsible) */}
+        <AnimatePresence>
+          {isAddingCategory && (
+            <motion.form
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onSubmit={handleAddCategory}
+              className="mb-6 flex gap-3"
             >
-              <FolderPlus size={20} />
-            </button>
-          </div>
-
-          <AnimatePresence>
-            {isAddingCategory && (
-              <motion.form 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                onSubmit={handleAddCategory}
-                className="mb-8 flex gap-3"
-              >
-                <input 
-                  autoFocus
-                  type="text" 
-                  placeholder="Nome da categoria..."
-                  value={newCategoryName}
-                  onChange={e => setNewCategoryName(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-gold/50 grow"
-                />
-                <button type="submit" className="px-4 py-2 bg-gold text-black rounded-xl text-xs font-bold uppercase tracking-widest">
-                  Criar
-                </button>
-              </motion.form>
-            )}
-          </AnimatePresence>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {allCategories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`group relative flex flex-col items-center p-6 rounded-2xl border transition-all duration-300 ${
-                  selectedCategory === cat 
-                    ? 'bg-gold/10 border-gold/50 shadow-gold' 
-                    : 'bg-white/5 border-white/10 hover:border-white/20'
-                }`}
-              >
-                <div className={`mb-3 p-3 rounded-xl transition-colors ${
-                  selectedCategory === cat ? 'bg-gold text-black' : 'bg-white/5 text-white/40 group-hover:text-gold'
-                }`}>
-                  <Folder size={24} />
-                </div>
-                <span className={`text-[10px] uppercase tracking-widest font-medium text-center ${
-                  selectedCategory === cat ? 'text-gold' : 'text-white/40'
-                }`}>
-                  {cat}
-                </span>
-                {selectedCategory === cat && (
-                  <motion.div 
-                    layoutId="folder-active"
-                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gold rounded-full"
-                  />
-                )}
+              <input
+                autoFocus
+                type="text"
+                placeholder="Nome da nova categoria..."
+                value={newCategoryName}
+                onChange={e => setNewCategoryName(e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-gold/50 grow"
+              />
+              <button type="submit" className="px-6 py-3 bg-gold text-black rounded-xl text-xs font-bold uppercase tracking-widest">
+                Criar
               </button>
-            ))}
-          </div>
-        </div>
-        
+              <button
+                type="button"
+                onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }}
+                className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
+              >
+                Cancelar
+              </button>
+            </motion.form>
+          )}
+        </AnimatePresence>
+
         {/* Top Header Section - Minimal */}
         <div className="flex justify-end gap-4 mb-12">
           <input 
@@ -1846,27 +1809,54 @@ export default function App() {
           <div className="h-px grow mx-6 bg-gradient-to-r from-gold/20 to-transparent" />
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-12 relative group">
-          <div className="absolute inset-0 bg-gold/5 blur-2xl rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity" />
-          <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-6 py-1 focus-within:border-gold/50 transition-all">
-            <Search className="text-white/20 group-focus-within:text-gold/50 transition-colors" size={20} />
-            <input 
-              type="text"
-              placeholder="Pesquisar por nome ou código ID..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-transparent border-none outline-none py-5 px-4 text-white text-lg placeholder:text-white/10"
-            />
-            {searchTerm && (
-              <button 
-                onClick={() => setSearchTerm('')}
-                className="p-2 hover:bg-white/5 rounded-full text-white/20 hover:text-white/40 transition-all"
-              >
-                <X size={16} />
-              </button>
-            )}
+        {/* Search Bar + Category Filter */}
+        <div className="mb-12 flex flex-col md:flex-row gap-3">
+          {/* Search */}
+          <div className="relative group grow">
+            <div className="absolute inset-0 bg-gold/5 blur-2xl rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity" />
+            <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-6 py-1 focus-within:border-gold/50 transition-all h-full">
+              <Search className="text-white/20 group-focus-within:text-gold/50 transition-colors shrink-0" size={20} />
+              <input
+                type="text"
+                placeholder="Pesquisar por nome ou código ID..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full bg-transparent border-none outline-none py-5 px-4 text-white text-lg placeholder:text-white/10"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="p-2 hover:bg-white/5 rounded-full text-white/20 hover:text-white/40 transition-all shrink-0"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Category Dropdown */}
+          <div className="relative md:w-72 shrink-0">
+            <Folder size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-10" />
+            <select
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-12 py-5 text-white text-sm outline-none focus:border-gold/50 appearance-none cursor-pointer uppercase tracking-widest h-full"
+            >
+              {allCategories.map(cat => (
+                <option key={cat} value={cat} className="bg-[#121212] normal-case">{cat}</option>
+              ))}
+            </select>
+            <ChevronRight size={16} className="absolute right-5 top-1/2 -translate-y-1/2 text-white/30 rotate-90 pointer-events-none" />
+          </div>
+
+          {/* Add Category Button */}
+          <button
+            onClick={() => setIsAddingCategory(!isAddingCategory)}
+            className="shrink-0 px-5 py-5 rounded-2xl bg-white/5 border border-white/10 text-gold/60 hover:text-gold hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+            title="Nova Categoria"
+          >
+            <FolderPlus size={20} />
+          </button>
         </div>
 
         {/* Grid */}
