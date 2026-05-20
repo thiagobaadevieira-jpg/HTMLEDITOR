@@ -41,7 +41,9 @@ import {
   User,
   AlertTriangle,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Copy,
+  Check
 } from 'lucide-react';
 
 // Custom WhatsApp brand logo (filled style; color follows currentColor)
@@ -524,6 +526,7 @@ export default function App() {
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ count: number, names: string[], type: 'import' | 'export' } | null>(null);
+  const [copiedHtml, setCopiedHtml] = useState(false);
   const [importResult, setImportResult] = useState<{
     imported: number;
     duplicates: number;
@@ -873,7 +876,7 @@ export default function App() {
     XLSX.writeFile(wb, "exemplo_fornecedores.xlsx");
   };
 
-  const handleExport = () => {
+  const handleExport = async (mode: 'download' | 'copy' = 'download') => {
     const suppliersToExport = filteredSuppliers;
     if (suppliersToExport.length === 0) return;
 
@@ -1299,6 +1302,26 @@ export default function App() {
 </html>
     `;
 
+    if (mode === 'copy') {
+      try {
+        await navigator.clipboard.writeText(htmlContent);
+        setCopiedHtml(true);
+        setTimeout(() => setCopiedHtml(false), 2200);
+      } catch (err) {
+        console.error('[copy html]', err);
+        // Fallback: usar textarea + execCommand
+        const ta = document.createElement('textarea');
+        ta.value = htmlContent;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); setCopiedHtml(true); setTimeout(() => setCopiedHtml(false), 2200); } catch {}
+        document.body.removeChild(ta);
+      }
+      return;
+    }
+
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1619,9 +1642,16 @@ export default function App() {
           <>
 
         {/* Primary action */}
-        <div className="flex justify-end gap-3 mb-12">
+        <div className="flex justify-end gap-3 mb-12 flex-wrap">
           <button
-            onClick={handleExport}
+            onClick={() => handleExport('copy')}
+            disabled={filteredSuppliers.length === 0}
+            className="flex items-center gap-2 px-6 py-3 rounded-full border border-gold/40 text-gold text-xs font-semibold tracking-widest uppercase hover:bg-gold/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {copiedHtml ? <><Check size={16} /> Copiado!</> : <><Copy size={16} /> Copiar HTML</>}
+          </button>
+          <button
+            onClick={() => handleExport('download')}
             disabled={filteredSuppliers.length === 0}
             className="flex items-center gap-2 px-6 py-3 rounded-full border border-gold/40 text-gold text-xs font-semibold tracking-widest uppercase hover:bg-gold/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -2057,7 +2087,7 @@ export default function App() {
             </button>
 
             <button
-              onClick={handleExport}
+              onClick={() => handleExport('download')}
               disabled={filteredSuppliers.length === 0}
               className="group flex items-center gap-4 p-6 rounded-2xl bg-white/5 border border-gold/30 hover:bg-gold/5 transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -2067,6 +2097,20 @@ export default function App() {
               <div>
                 <div className="text-gold text-sm font-bold uppercase tracking-widest mb-1">Exportar HTML</div>
                 <div className="text-white/40 text-xs">Gere o catálogo estilizado pronto pra publicar</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleExport('copy')}
+              disabled={filteredSuppliers.length === 0}
+              className="group flex items-center gap-4 p-6 rounded-2xl bg-white/5 border border-gold/30 hover:bg-gold/5 transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <div className="p-3 rounded-xl bg-gold/10 text-gold group-hover:bg-gold/20 transition-colors">
+                {copiedHtml ? <Check size={24} /> : <Copy size={24} />}
+              </div>
+              <div>
+                <div className="text-gold text-sm font-bold uppercase tracking-widest mb-1">{copiedHtml ? 'Copiado!' : 'Copiar HTML'}</div>
+                <div className="text-white/40 text-xs">Cola direto onde quiser, sem baixar arquivo</div>
               </div>
             </button>
           </div>
