@@ -512,7 +512,7 @@ export default function App() {
   const configSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstRender = useRef(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'directory' | 'customization'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'customization' | 'configuration'>('directory');
   const [cardConfig, setCardConfig] = useState<CardConfig>(DEFAULT_CARD_CONFIG);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
@@ -1508,7 +1508,7 @@ export default function App() {
               <motion.div layoutId="nav-active" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
             )}
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('customization')}
             className={`flex items-center gap-2 py-4 px-4 text-xs font-bold uppercase tracking-[0.2em] transition-all relative ${
               activeTab === 'customization' ? 'text-gold' : 'text-white/20 hover:text-white/50'
@@ -1517,6 +1517,18 @@ export default function App() {
             <Palette size={16} />
             Personalizar Card
             {activeTab === 'customization' && (
+              <motion.div layoutId="nav-active" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('configuration')}
+            className={`flex items-center gap-2 py-4 px-4 text-xs font-bold uppercase tracking-[0.2em] transition-all relative ${
+              activeTab === 'configuration' ? 'text-gold' : 'text-white/20 hover:text-white/50'
+            }`}
+          >
+            <Settings2 size={16} />
+            Configuração
+            {activeTab === 'configuration' && (
               <motion.div layoutId="nav-active" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
             )}
           </button>
@@ -1530,101 +1542,29 @@ export default function App() {
           </button>
         </nav>
 
-        {activeTab === 'directory' ? (
+        {activeTab === 'directory' && (
           <>
-            {/* Add Category Form (collapsible) */}
-        <AnimatePresence>
-          {isAddingCategory && (
-            <motion.form
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              onSubmit={handleAddCategory}
-              className="mb-6 flex gap-3"
-            >
-              <input
-                autoFocus
-                type="text"
-                placeholder="Nome da nova categoria..."
-                value={newCategoryName}
-                onChange={e => setNewCategoryName(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-gold/50 grow"
-              />
-              <button type="submit" className="px-6 py-3 bg-gold text-black rounded-xl text-xs font-bold uppercase tracking-widest">
-                Criar
-              </button>
-              <button
-                type="button"
-                onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }}
-                className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
-              >
-                Cancelar
-              </button>
-            </motion.form>
-          )}
-        </AnimatePresence>
 
-        {/* Top Header Section - Minimal */}
-        <div className="flex justify-end gap-4 mb-12">
-          <input 
-            type="file" 
-            ref={fileInputRef}
-            onChange={handleImportExcel}
-            accept=".xlsx, .xls"
-            className="hidden"
-          />
-          <input 
-            type="file" 
-            ref={bulkImageInputRef}
-            onChange={handleBulkImageUpload}
-            accept="image/*"
-            multiple
-            className="hidden"
-          />
-          <div className="flex flex-col items-end gap-1">
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-white/60 text-xs font-semibold tracking-widest uppercase hover:bg-white/5 transition-all"
-            >
-              <Upload size={16} />
-              Importar Excel
-            </button>
-            <button 
-              onClick={handleDownloadExample}
-              className="text-[9px] uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors mr-4"
-            >
-              Baixar Exemplo de Importação
-            </button>
-          </div>
+        {/* Hidden file inputs (used by Configuration tab actions) */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImportExcel}
+          accept=".xlsx, .xls"
+          className="hidden"
+        />
+        <input
+          type="file"
+          ref={bulkImageInputRef}
+          onChange={handleBulkImageUpload}
+          accept="image/*"
+          multiple
+          className="hidden"
+        />
 
-          <button 
-            onClick={() => bulkImageInputRef.current?.click()}
-            className="flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-white/60 text-xs font-semibold tracking-widest uppercase hover:bg-white/5 transition-all"
-          >
-            <ImageIcon size={16} />
-            Fotos em Massa
-          </button>
-
-          {filteredSuppliers.length > 0 && (
-            <div className="flex gap-2">
-              <button 
-                onClick={handleExcelExport}
-                className="flex items-center gap-2 px-6 py-3 rounded-full border border-gold/30 text-gold text-xs font-semibold tracking-widest uppercase hover:bg-gold/5 transition-all"
-              >
-                <Package size={16} />
-                Exportar Excel
-              </button>
-              <button 
-                onClick={handleExport}
-                className="flex items-center gap-2 px-6 py-3 rounded-full border border-gold/30 text-gold text-xs font-semibold tracking-widest uppercase hover:bg-gold/5 transition-all"
-              >
-                <Download size={16} />
-                Exportar HTML
-              </button>
-            </div>
-          )}
-          
-          <button 
+        {/* Primary action */}
+        <div className="flex justify-end mb-12">
+          <button
             onClick={toggleRegister}
             className="flex items-center gap-2 px-6 py-3 rounded-full bg-gold text-black text-xs font-semibold tracking-widest uppercase hover:scale-105 transition-transform shadow-gold"
           >
@@ -1848,15 +1788,6 @@ export default function App() {
             </select>
             <ChevronRight size={16} className="absolute right-5 top-1/2 -translate-y-1/2 text-white/30 rotate-90 pointer-events-none" />
           </div>
-
-          {/* Add Category Button */}
-          <button
-            onClick={() => setIsAddingCategory(!isAddingCategory)}
-            className="shrink-0 px-5 py-5 rounded-2xl bg-white/5 border border-white/10 text-gold/60 hover:text-gold hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-            title="Nova Categoria"
-          >
-            <FolderPlus size={20} />
-          </button>
         </div>
 
         {/* Grid */}
@@ -1889,7 +1820,144 @@ export default function App() {
           </motion.div>
         )}
       </>
-    ) : (
+    )}
+
+    {activeTab === 'configuration' && (
+      <div className="max-w-5xl mx-auto space-y-12">
+        <div className="flex items-center gap-2 mb-2">
+          <Settings2 size={16} className="text-gold" />
+          <h2 className="text-white text-xs font-bold uppercase tracking-widest">Ações & Dados</h2>
+        </div>
+
+        {/* Categorias */}
+        <section>
+          <h3 className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">Categorias</h3>
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <AnimatePresence mode="wait">
+              {!isAddingCategory ? (
+                <motion.button
+                  key="add-btn"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsAddingCategory(true)}
+                  className="flex items-center gap-3 px-5 py-3 rounded-xl bg-gold/10 text-gold border border-gold/20 hover:bg-gold/20 transition-all text-xs font-bold uppercase tracking-widest"
+                >
+                  <FolderPlus size={18} />
+                  Adicionar Nova Categoria
+                </motion.button>
+              ) : (
+                <motion.form
+                  key="add-form"
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  onSubmit={handleAddCategory}
+                  className="flex gap-3"
+                >
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Nome da nova categoria..."
+                    value={newCategoryName}
+                    onChange={e => setNewCategoryName(e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-gold/50 grow"
+                  />
+                  <button type="submit" className="px-6 py-3 bg-gold text-black rounded-xl text-xs font-bold uppercase tracking-widest">
+                    Criar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }}
+                    className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </motion.form>
+              )}
+            </AnimatePresence>
+          </div>
+        </section>
+
+        {/* Importar */}
+        <section>
+          <h3 className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">Importar</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="group flex items-center gap-4 p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-gold/30 hover:bg-white/[0.07] transition-all text-left"
+            >
+              <div className="p-3 rounded-xl bg-gold/10 text-gold group-hover:bg-gold/20 transition-colors">
+                <Upload size={24} />
+              </div>
+              <div>
+                <div className="text-white text-sm font-bold uppercase tracking-widest mb-1">Importar Excel</div>
+                <div className="text-white/40 text-xs">Adicione fornecedores em massa de uma planilha</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => bulkImageInputRef.current?.click()}
+              className="group flex items-center gap-4 p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-gold/30 hover:bg-white/[0.07] transition-all text-left"
+            >
+              <div className="p-3 rounded-xl bg-gold/10 text-gold group-hover:bg-gold/20 transition-colors">
+                <ImageIcon size={24} />
+              </div>
+              <div>
+                <div className="text-white text-sm font-bold uppercase tracking-widest mb-1">Fotos em Massa</div>
+                <div className="text-white/40 text-xs">Atualize logos vinculando pelo código do card</div>
+              </div>
+            </button>
+          </div>
+
+          <button
+            onClick={handleDownloadExample}
+            className="mt-4 text-[10px] uppercase tracking-widest text-white/30 hover:text-gold transition-colors"
+          >
+            ↓ Baixar Exemplo de Planilha
+          </button>
+        </section>
+
+        {/* Exportar */}
+        <section>
+          <h3 className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">Exportar</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={handleExcelExport}
+              disabled={filteredSuppliers.length === 0}
+              className="group flex items-center gap-4 p-6 rounded-2xl bg-white/5 border border-gold/30 hover:bg-gold/5 transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <div className="p-3 rounded-xl bg-gold/10 text-gold group-hover:bg-gold/20 transition-colors">
+                <Package size={24} />
+              </div>
+              <div>
+                <div className="text-gold text-sm font-bold uppercase tracking-widest mb-1">Exportar Excel</div>
+                <div className="text-white/40 text-xs">Baixe a lista filtrada em planilha .xlsx</div>
+              </div>
+            </button>
+
+            <button
+              onClick={handleExport}
+              disabled={filteredSuppliers.length === 0}
+              className="group flex items-center gap-4 p-6 rounded-2xl bg-white/5 border border-gold/30 hover:bg-gold/5 transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <div className="p-3 rounded-xl bg-gold/10 text-gold group-hover:bg-gold/20 transition-colors">
+                <Download size={24} />
+              </div>
+              <div>
+                <div className="text-gold text-sm font-bold uppercase tracking-widest mb-1">Exportar HTML</div>
+                <div className="text-white/40 text-xs">Gere o catálogo estilizado pronto pra publicar</div>
+              </div>
+            </button>
+          </div>
+          {filteredSuppliers.length === 0 && (
+            <p className="mt-3 text-[10px] uppercase tracking-widest text-white/20">Adicione fornecedores para habilitar a exportação</p>
+          )}
+        </section>
+      </div>
+    )}
+
+    {activeTab === 'customization' && (
       <div className="flex flex-col md:flex-row gap-12">
         {/* Customization Controls */}
         <div className="w-full md:w-80 shrink-0 space-y-10">
