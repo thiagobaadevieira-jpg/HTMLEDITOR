@@ -520,6 +520,8 @@ export default function App() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ count: number, names: string[], type: 'import' | 'export' } | null>(null);
   const [importResult, setImportResult] = useState<{
@@ -554,6 +556,18 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Close category dropdown when clicking outside
+  useEffect(() => {
+    if (!isCategoryDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isCategoryDropdownOpen]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1774,19 +1788,60 @@ export default function App() {
             </div>
           </div>
 
-          {/* Category Dropdown */}
-          <div className="relative md:w-72 shrink-0">
-            <Folder size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-10" />
-            <select
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-12 py-5 text-white text-sm outline-none focus:border-gold/50 appearance-none cursor-pointer uppercase tracking-widest h-full"
+          {/* Category Dropdown (custom, styled) */}
+          <div className="relative md:w-72 shrink-0" ref={categoryDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsCategoryDropdownOpen(v => !v)}
+              className={`w-full bg-white/5 border rounded-2xl pl-14 pr-12 py-5 text-white text-sm outline-none transition-all cursor-pointer uppercase tracking-widest h-full text-left ${
+                isCategoryDropdownOpen ? 'border-gold/50' : 'border-white/10 hover:border-white/20'
+              }`}
             >
-              {allCategories.map(cat => (
-                <option key={cat} value={cat} className="bg-[#121212] normal-case">{cat}</option>
-              ))}
-            </select>
-            <ChevronRight size={16} className="absolute right-5 top-1/2 -translate-y-1/2 text-white/30 rotate-90 pointer-events-none" />
+              <Folder size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+              <span className="block truncate">{selectedCategory}</span>
+              <ChevronRight
+                size={16}
+                className={`absolute right-5 top-1/2 -translate-y-1/2 text-white/30 transition-transform pointer-events-none ${
+                  isCategoryDropdownOpen ? '-rotate-90' : 'rotate-90'
+                }`}
+              />
+            </button>
+
+            <AnimatePresence>
+              {isCategoryDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                  className="absolute top-full left-0 right-0 mt-2 z-50 bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+                >
+                  <div className="max-h-80 overflow-y-auto py-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent">
+                    {allCategories.map((cat) => {
+                      const isActive = cat === selectedCategory;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory(cat);
+                            setIsCategoryDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between gap-3 px-5 py-3 text-left text-xs uppercase tracking-widest transition-colors ${
+                            isActive
+                              ? 'bg-gold/10 text-gold'
+                              : 'text-white/60 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          <span className="truncate">{cat}</span>
+                          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
