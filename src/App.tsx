@@ -522,6 +522,13 @@ export default function App() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ count: number, names: string[], type: 'import' | 'export' } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    imported: number;
+    duplicates: number;
+    duplicateNames: string[];
+    failed: number;
+    failedReason?: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bulkImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -691,75 +698,109 @@ export default function App() {
     }
   };
 
+  // Extracts Instagram username — handles raw username, @username, or full instagram.com URL
+  const normalizeInstagram = (raw: any): string => {
+    let v = (raw ?? '').toString().trim();
+    const urlMatch = v.match(/instagram\.com\/([^/?#\s]+)/i);
+    if (urlMatch) v = urlMatch[1];
+    return v.replace(/^@+/, '').toLowerCase().trim();
+  };
+
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws);
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
 
-      const existingNames = new Set(suppliers.map(s => s.name.toLowerCase().trim()));
-      const existingHandles = new Set(suppliers.map(s => s.instagram?.toLowerCase().trim()).filter(Boolean));
+        const existingNames = new Set(suppliers.map(s => s.name.toLowerCase().trim()));
+        const existingHandles = new Set(suppliers.map(s => s.instagram?.toLowerCase().trim()).filter(Boolean));
 
-      const duplicates: string[] = [];
-      const rowsToInsert: Array<Omit<DbSupplier, 'id' | 'numeric_id' | 'created_at' | 'updated_at'>> = [];
+        const duplicates: string[] = [];
+        const rowsToInsert: Array<Omit<DbSupplier, 'id' | 'numeric_id' | 'created_at' | 'updated_at'>> = [];
 
-      data.forEach((row: any) => {
-        const name = (row['Nome da Loja'] || row['Nome'] || '').toString().trim();
-        const instagram = (row['Instagram'] || '').toString().replace('@', '').toLowerCase().trim();
-        const whatsapp = (row['WhatsApp'] || row['Whats'] || row['whats'] || '').toString().replace(/\D/g, '');
-        const address = row['Endereço'] || row['Endereco'] || '';
-        const category = row['Categoria'] || 'Importado';
-        const logo_url = row['Logo URL'] || row['URL Imagem'] || '';
+        data.forEach((row: any) => {
+          const name = (row['Nome da Loja'] || row['Nome'] || '').toString().trim();
+          const instagram = normalizeInstagram(row['Instagram']);
+          const whatsapp = (row['WhatsApp'] || row['Whats'] || row['whats'] || '').toString().replace(/\D/g, '');
+          const address = (row['Endereço'] || row['Endereco'] || '').toString();
+          const category = (row['Categoria'] || 'Importado').toString();
+          const logo_url = (row['Logo URL'] || row['URL Imagem'] || '').toString();
 
-        if (!name) return;
+          if (!name) return;
 
-        const isDuplicate = existingNames.has(name.toLowerCase()) || (instagram && existingHandles.has(instagram));
-        if (isDuplicate) { duplicates.push(name); return; }
+          const isDuplicate = existingNames.has(name.toLowerCase()) || (instagram && existingHandles.has(instagram));
+          if (isDuplicate) { duplicates.push(name); return; }
 
-        rowsToInsert.push({
-          name,
-          handle: instagram ? `@${instagram}` : '',
-          category,
-          address,
-          whatsapp,
-          instagram,
-          logo: name.charAt(0).toUpperCase() || 'S',
-          logo_url,
+          rowsToInsert.push({
+            name,
+            handle: instagram ? `@${instagram}` : '',
+            category,
+            address,
+            whatsapp,
+            instagram,
+            logo: name.charAt(0).toUpperCase() || 'S',
+            logo_url,
+          });
+          existingNames.add(name.toLowerCase());
+          if (instagram) existingHandles.add(instagram);
         });
-        existingNames.add(name.toLowerCase());
-        if (instagram) existingHandles.add(instagram);
-      });
 
-      if (duplicates.length > 0) {
-        setDuplicateWarning({ count: duplicates.length, names: duplicates.slice(0, 5), type: 'import' });
-      }
+        let imported = 0;
+        let failed = 0;
+        let failedReason: string | undefined;
 
-      if (rowsToInsert.length > 0) {
-        const { data: inserted } = await supabase
-          .from('suppliers')
-          .insert(rowsToInsert)
-          .select();
+        if (rowsToInsert.length > 0) {
+          const { data: inserted, error } = await supabase
+            .from('suppliers')
+            .insert(rowsToInsert)
+            .select();
 
-        if (inserted) {
-          setSuppliers(prev => [...inserted.map(dbToSupplier), ...prev]);
+          if (error) {
+            console.error('[import suppliers]', error);
+            failed = rowsToInsert.length;
+            failedReason = error.message;
+          } else if (inserted) {
+            imported = inserted.length;
+            setSuppliers(prev => [...inserted.map(dbToSupplier), ...prev]);
+
+            // create any new categories found
+            const newCatsFound = Array.from(new Set(rowsToInsert.map(r => r.category)));
+            const brandNewCats = newCatsFound.filter(c => !categories.includes(c));
+            if (brandNewCats.length > 0) {
+              const { error: catError } = await supabase.from('categories')
+                .upsert(brandNewCats.map(name => ({ name })), { onConflict: 'name' });
+              if (catError) console.error('[import categories]', catError);
+              else setCategories(prev => Array.from(new Set([...prev, ...brandNewCats])));
+            }
+          }
         }
 
-        const newCatsFound = Array.from(new Set(rowsToInsert.map(r => r.category)));
-        const brandNewCats = newCatsFound.filter(c => !categories.includes(c));
-        if (brandNewCats.length > 0) {
-          await supabase.from('categories')
-            .upsert(brandNewCats.map(name => ({ name })), { onConflict: 'name' });
-          setCategories(prev => Array.from(new Set([...prev, ...brandNewCats])));
-        }
+        setImportResult({
+          imported,
+          duplicates: duplicates.length,
+          duplicateNames: duplicates.slice(0, 5),
+          failed,
+          failedReason,
+        });
+      } catch (err: any) {
+        console.error('[import excel]', err);
+        setImportResult({
+          imported: 0,
+          duplicates: 0,
+          duplicateNames: [],
+          failed: 1,
+          failedReason: err?.message || 'Erro ao ler o arquivo Excel',
+        });
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
-
-      if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsBinaryString(file);
   };
@@ -2430,8 +2471,88 @@ export default function App() {
                   </ul>
                 </div>
 
-                <button 
+                <button
                   onClick={() => setDuplicateWarning(null)}
+                  className="w-full py-4 bg-white text-black text-xs font-bold uppercase tracking-widest rounded-2xl hover:bg-white/90 transition-all shadow-lg"
+                >
+                  Entendido
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Import Result Modal */}
+      <AnimatePresence>
+        {importResult && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setImportResult(null)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-[32px] p-8 overflow-hidden shadow-2xl"
+            >
+              <div className="relative z-10 text-center">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 mx-auto ${
+                  importResult.failed > 0 ? 'bg-red-500/10 text-red-500'
+                    : importResult.imported > 0 ? 'bg-emerald-500/10 text-emerald-400'
+                    : 'bg-amber-500/10 text-amber-500'
+                }`}>
+                  {importResult.failed > 0
+                    ? <AlertTriangle size={32} />
+                    : importResult.imported > 0 ? <Upload size={32} /> : <AlertTriangle size={32} />}
+                </div>
+
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  {importResult.failed > 0 ? 'Falha na Importação'
+                    : importResult.imported > 0 ? 'Importação Concluída'
+                    : 'Nada para Importar'}
+                </h3>
+
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-3">
+                    <p className="text-2xl font-bold text-emerald-400">{importResult.imported}</p>
+                    <p className="text-[9px] uppercase tracking-widest text-white/40 mt-1">Importados</p>
+                  </div>
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-3">
+                    <p className="text-2xl font-bold text-amber-400">{importResult.duplicates}</p>
+                    <p className="text-[9px] uppercase tracking-widest text-white/40 mt-1">Repetidos</p>
+                  </div>
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-3">
+                    <p className="text-2xl font-bold text-red-400">{importResult.failed}</p>
+                    <p className="text-[9px] uppercase tracking-widest text-white/40 mt-1">Falharam</p>
+                  </div>
+                </div>
+
+                {importResult.failedReason && (
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-4 mb-6 text-left">
+                    <p className="text-[10px] uppercase tracking-widest text-red-400/70 mb-2">Motivo da falha:</p>
+                    <p className="text-xs text-white/70 break-words">{importResult.failedReason}</p>
+                  </div>
+                )}
+
+                {importResult.duplicateNames.length > 0 && (
+                  <div className="bg-white/5 rounded-2xl p-4 mb-6 text-left">
+                    <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">Repetidos ignorados:</p>
+                    <ul className="space-y-1">
+                      {importResult.duplicateNames.map((name, i) => (
+                        <li key={i} className="text-xs text-white/60 truncate">• {name}</li>
+                      ))}
+                      {importResult.duplicates > 5 && <li className="text-[10px] text-white/20 italic mt-1">...e outros {importResult.duplicates - 5}</li>}
+                    </ul>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setImportResult(null)}
                   className="w-full py-4 bg-white text-black text-xs font-bold uppercase tracking-widest rounded-2xl hover:bg-white/90 transition-all shadow-lg"
                 >
                   Entendido
