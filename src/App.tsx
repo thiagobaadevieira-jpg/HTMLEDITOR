@@ -85,6 +85,7 @@ const DEFAULT_CARD_CONFIG: CardConfig = {
   socialIconSize: 22,
   footerIconSize: 18,
   codeSize: 10,
+  privacyBlur: 0,
 };
 
 // Types
@@ -112,6 +113,7 @@ interface CardConfig {
   socialIconSize: number;
   footerIconSize: number;
   codeSize: number;
+  privacyBlur: number;
 }
 
 interface Supplier {
@@ -284,7 +286,7 @@ const SupplierCard = memo(function SupplierCard({
         />
         
         {/* Logo Section */}
-        <div className="relative z-10 w-[120px] h-[120px] mb-8">
+        <div className="relative z-10 w-[120px] h-[120px] mb-8 transition-[filter] duration-200" style={{ filter: config.privacyBlur ? `blur(${config.privacyBlur * 0.12}px)` : undefined }}>
           <div 
             className="absolute inset-0 rounded-full flex items-center justify-center transition-all"
             style={{ 
@@ -326,9 +328,9 @@ const SupplierCard = memo(function SupplierCard({
 
         {/* Info */}
         <div className="text-center z-10 w-full mb-6 flex flex-col items-center">
-          <span 
-            className="text-[10px] uppercase font-bold tracking-[0.3em] mb-2 block"
-            style={{ color: `${config.iconColor}80` }}
+          <span
+            className="text-[10px] uppercase font-bold tracking-[0.3em] mb-2 block transition-[filter] duration-200"
+            style={{ color: `${config.iconColor}80`, filter: config.privacyBlur ? `blur(${config.privacyBlur * 0.12}px)` : undefined }}
           >
             {supplier.handle}
           </span>
@@ -403,7 +405,7 @@ const SupplierCard = memo(function SupplierCard({
           </div>
 
           {/* Address */}
-          <div className="flex items-start justify-center gap-2 px-2 w-full">
+          <div className="flex items-start justify-center gap-2 px-2 w-full transition-[filter] duration-200" style={{ filter: config.privacyBlur ? `blur(${config.privacyBlur * 0.12}px)` : undefined }}>
             <MapPin size={14} className="mt-1 shrink-0" style={{ color: `${config.iconColor}99` }} />
             <p className="text-[11px] text-white/50 leading-relaxed max-w-[200px] text-center">
               {supplier.address}
@@ -468,6 +470,7 @@ function dbToCardConfig(row: DbCardConfig): CardConfig {
     socialIconSize: row.social_icon_size,
     footerIconSize: row.footer_icon_size,
     codeSize: row.code_size,
+    privacyBlur: row.privacy_blur ?? 0,
   }
 }
 
@@ -496,6 +499,7 @@ function cardConfigToDb(config: CardConfig): Omit<DbCardConfig, 'id' | 'updated_
     social_icon_size: config.socialIconSize,
     footer_icon_size: config.footerIconSize,
     code_size: config.codeSize,
+    privacy_blur: config.privacyBlur,
   }
 }
 
@@ -1145,7 +1149,7 @@ export default function App() {
       font-weight: 700;
       color: rgba(255, 255, 255, 0.3);
     }
-    .logo-container { width: 120px; height: 120px; margin-bottom: 32px; position: relative; }
+    .logo-container { width: 120px; height: 120px; margin-bottom: 32px; position: relative; filter: blur(${(cardConfig.privacyBlur || 0) * 0.12}px); }
     .logo-ring-wrapper {
       position: absolute; inset: 0; border-radius: 50%;
       border: ${cardConfig.logoBorderWidth}px solid ${cardConfig.logoBorderColor};
@@ -1160,7 +1164,7 @@ export default function App() {
     }
     .logo-text { color: ${cardConfig.iconColor}; font-size: 36px; font-weight: 300; }
     .info { flex-grow: 1; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; }
-    .handle { font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.3em; color: ${cardConfig.iconColor}80; margin-bottom: 8px; }
+    .handle { font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.3em; color: ${cardConfig.iconColor}80; margin-bottom: 8px; filter: blur(${(cardConfig.privacyBlur || 0) * 0.12}px); }
     .name { font-size: 24px; margin-bottom: 16px; color: #FFFFFF; }
     .divider { height: 1px; width: 96px; background: linear-gradient(to right, transparent, ${cardConfig.iconColor}66, transparent); margin-bottom: 24px; }
     .social-icons { display: flex; gap: 16px; margin-bottom: 24px; }
@@ -1187,7 +1191,7 @@ export default function App() {
       border-color: ${cardConfig.iconColor}66;
       color: ${cardConfig.iconColor};
     }
-    .address { font-size: 11px; color: rgba(255, 255, 255, 0.4); display: flex; gap: 8px; text-align: center; }
+    .address { font-size: 11px; color: rgba(255, 255, 255, 0.4); display: flex; gap: 8px; text-align: center; filter: blur(${(cardConfig.privacyBlur || 0) * 0.12}px); }
     .footer { width: 100%; padding-top: 16px; margin-top: 24px; }
     .divider-full { height: 1px; width: 100%; background: linear-gradient(to right, transparent, ${cardConfig.iconColor}33, transparent); margin-bottom: 16px; }
   </style>
@@ -2354,6 +2358,21 @@ export default function App() {
                         onChange={e => updateConfig({codeSize: parseInt(e.target.value)})}
                         className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                       />
+                    </div>
+
+                    {/* Privacy Blur — para gravar vídeo demonstrativo sem expor contatos */}
+                    <div className="space-y-3 pt-4 border-t border-white/5">
+                      <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-white/40">
+                        <label>Borrão de Privacidade</label>
+                        <span className={cardConfig.privacyBlur > 0 ? 'text-gold' : ''}>{cardConfig.privacyBlur}%</span>
+                      </div>
+                      <input
+                        type="range" min="0" max="100"
+                        value={cardConfig.privacyBlur}
+                        onChange={e => updateConfig({privacyBlur: parseInt(e.target.value)})}
+                        className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
+                      />
+                      <p className="text-[9px] text-white/30 leading-relaxed">Borra foto, @ e endereço dos cards. Útil para gravar vídeo sem expor contatos. Volte a 0% depois.</p>
                     </div>
 
                     <div className="space-y-3">

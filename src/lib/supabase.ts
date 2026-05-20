@@ -45,6 +45,7 @@ export interface DbCardConfig {
   social_icon_size: number
   footer_icon_size: number
   code_size: number
+  privacy_blur: number
   updated_at: string
 }
 
