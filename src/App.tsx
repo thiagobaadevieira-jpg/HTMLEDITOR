@@ -1965,6 +1965,23 @@ export default function App() {
   // ==================== ADMIN VIEW ====================
   return (
     <div className="min-h-screen font-sans selection:bg-gold/30 selection:text-white transition-colors duration-500" style={{ backgroundColor: cardConfig.pageBackgroundColor }}>
+      {/* Hidden file inputs — always mounted so buttons in any tab can trigger them */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImportExcel}
+        accept=".xlsx, .xls"
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={bulkImageInputRef}
+        onChange={handleBulkImageUpload}
+        accept="image/*"
+        multiple
+        className="hidden"
+      />
+
       {/* Main Content */}
       <main className="w-full max-w-[1800px] mx-auto px-6 py-8 md:py-12">
 
@@ -2018,23 +2035,6 @@ export default function App() {
 
         {activeTab === 'directory' && (
           <>
-
-        {/* Hidden file inputs (used by Configuration tab actions) */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleImportExcel}
-          accept=".xlsx, .xls"
-          className="hidden"
-        />
-        <input
-          type="file"
-          ref={bulkImageInputRef}
-          onChange={handleBulkImageUpload}
-          accept="image/*"
-          multiple
-          className="hidden"
-        />
 
         {/* Results Info */}
         <div className="mb-8 flex items-center justify-between">
