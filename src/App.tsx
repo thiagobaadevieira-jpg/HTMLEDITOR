@@ -43,7 +43,13 @@ import {
   Upload,
   Image as ImageIcon,
   Copy,
-  Check
+  Check,
+  Lock,
+  LockKeyhole,
+  KeyRound,
+  EyeOff,
+  Shield,
+  ShieldOff
 } from 'lucide-react';
 
 // Custom WhatsApp brand logo (filled style; color follows currentColor)
@@ -58,12 +64,14 @@ const Whatsapp = ({ size = 24 }: { size?: number }) => (
 const ICON_COMPONENTS = {
   ShoppingBag, Store, Package, Gift, Truck, CreditCard, Globe, Link, MapIcon,
   MessageCircle, Phone, MessageSquare, Send, Whatsapp,
-  Instagram, Camera, Link2, User
+  Instagram, Camera, Link2, User,
+  Lock, LockKeyhole, KeyRound, EyeOff, Shield, ShieldOff
 };
 
 const FOOTER_ICONS = ['ShoppingBag', 'Store', 'Package', 'Gift', 'Truck', 'CreditCard', 'Globe', 'Link', 'MapIcon'];
 const WHATSAPP_ICONS = ['MessageCircle', 'Phone', 'MessageSquare', 'Send', 'Whatsapp'];
 const INSTAGRAM_ICONS = ['Instagram', 'Camera', 'Link2', 'User'];
+const LOCK_ICONS = ['Lock', 'LockKeyhole', 'KeyRound', 'EyeOff', 'Shield', 'ShieldOff'];
 
 const DEFAULT_CARD_CONFIG: CardConfig = {
   borderRadius: 32,
@@ -86,6 +94,10 @@ const DEFAULT_CARD_CONFIG: CardConfig = {
   footerIconSize: 18,
   codeSize: 10,
   privacyBlur: 0,
+  lockEnabled: false,
+  lockSize: 36,
+  lockColor: '#C89A62',
+  lockIcon: 'Lock',
 };
 
 // Types
@@ -114,6 +126,10 @@ interface CardConfig {
   footerIconSize: number;
   codeSize: number;
   privacyBlur: number;
+  lockEnabled: boolean;
+  lockSize: number;
+  lockColor: string;
+  lockIcon: string;
 }
 
 interface Supplier {
@@ -285,45 +301,61 @@ const SupplierCard = memo(function SupplierCard({
           style={{ backgroundImage: `radial-gradient(at 50% 0%, ${config.accentColor}0d, transparent)` }}
         />
         
-        {/* Logo Section */}
-        <div className="relative z-10 w-[120px] h-[120px] mb-8 transition-[filter] duration-200" style={{ filter: config.privacyBlur ? `blur(${config.privacyBlur * 0.12}px)` : undefined }}>
-          <div 
-            className="absolute inset-0 rounded-full flex items-center justify-center transition-all"
-            style={{ 
-              border: `${config.logoBorderWidth}px solid ${config.logoBorderColor}`,
-              padding: config.showLogoRings ? '10px' : '0'
-            }}
-          >
-            <div 
-              className="w-full h-full rounded-full border flex items-center justify-center bg-black overflow-hidden"
-              style={{ 
-                borderColor: config.showLogoRings ? `${config.iconColor}80` : 'transparent',
-                boxShadow: config.showLogoRings ? `0 0 20px ${config.iconColor}26` : 'none'
+        {/* Logo Section (outer wrapper — no blur, holds lock overlay) */}
+        <div className="relative z-10 w-[120px] h-[120px] mb-8">
+          {/* Inner — receives the blur */}
+          <div className="absolute inset-0 transition-[filter] duration-200" style={{ filter: config.privacyBlur ? `blur(${config.privacyBlur * 0.12}px)` : undefined }}>
+            <div
+              className="absolute inset-0 rounded-full flex items-center justify-center transition-all"
+              style={{
+                border: `${config.logoBorderWidth}px solid ${config.logoBorderColor}`,
+                padding: config.showLogoRings ? '10px' : '0'
               }}
             >
-              {supplier.logoUrl ? (
-                <img
-                  src={supplier.logoUrl}
-                  alt={supplier.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span 
-                  className="text-4xl font-display font-light tracking-widest"
-                  style={{ color: config.iconColor }}
-                >{supplier.logo}</span>
-              )}
+              <div
+                className="w-full h-full rounded-full border flex items-center justify-center bg-black overflow-hidden"
+                style={{
+                  borderColor: config.showLogoRings ? `${config.iconColor}80` : 'transparent',
+                  boxShadow: config.showLogoRings ? `0 0 20px ${config.iconColor}26` : 'none'
+                }}
+              >
+                {supplier.logoUrl ? (
+                  <img
+                    src={supplier.logoUrl}
+                    alt={supplier.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span
+                    className="text-4xl font-display font-light tracking-widest"
+                    style={{ color: config.iconColor }}
+                  >{supplier.logo}</span>
+                )}
+              </div>
             </div>
+            {/* Decorative Ring */}
+            {config.showLogoRings && (
+              <div
+                className="absolute -inset-2 rounded-full border border-dashed animate-[spin_30s_linear_infinite]"
+                style={{ borderColor: `${config.iconColor}1a` }}
+              />
+            )}
           </div>
-          {/* Decorative Ring */}
-          {config.showLogoRings && (
-            <div 
-              className="absolute -inset-2 rounded-full border border-dashed animate-[spin_30s_linear_infinite]"
-              style={{ borderColor: `${config.iconColor}1a` }}
-            />
-          )}
+
+          {/* Lock overlay (NOT blurred, on top) */}
+          {config.lockEnabled && (() => {
+            const LockIco = (ICON_COMPONENTS as any)[config.lockIcon] || Lock;
+            return (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <LockIco
+                  size={config.lockSize}
+                  style={{ color: config.lockColor, filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.6))' }}
+                />
+              </div>
+            );
+          })()}
         </div>
 
         {/* Info */}
@@ -471,6 +503,10 @@ function dbToCardConfig(row: DbCardConfig): CardConfig {
     footerIconSize: row.footer_icon_size,
     codeSize: row.code_size,
     privacyBlur: row.privacy_blur ?? 0,
+    lockEnabled: row.lock_enabled ?? false,
+    lockSize: row.lock_size ?? 36,
+    lockColor: row.lock_color ?? '#C89A62',
+    lockIcon: row.lock_icon ?? 'Lock',
   }
 }
 
@@ -500,6 +536,10 @@ function cardConfigToDb(config: CardConfig): Omit<DbCardConfig, 'id' | 'updated_
     footer_icon_size: config.footerIconSize,
     code_size: config.codeSize,
     privacy_blur: config.privacyBlur,
+    lock_enabled: config.lockEnabled,
+    lock_size: config.lockSize,
+    lock_color: config.lockColor,
+    lock_icon: config.lockIcon,
   }
 }
 
@@ -925,7 +965,13 @@ export default function App() {
         'MessageSquare': '<path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/>',
         'Search': '<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>',
         'Send': '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
-        'MapPin': '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>'
+        'MapPin': '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+        'Lock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        'LockKeyhole': '<circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/>',
+        'KeyRound': '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>',
+        'EyeOff': '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+        'Shield': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+        'ShieldOff': '<path d="M19.69 14a6.9 6.9 0 0 0 .31-2V5l-8-3-3.16 1.18"/><path d="M4.73 4.73 4 5v7c0 6 8 10 8 10a20.29 20.29 0 0 0 5.62-4.38"/><path d="m2 2 20 20"/>'
       };
       return paths[name] || paths['ShoppingBag'];
     };
@@ -944,16 +990,25 @@ export default function App() {
           <div class="overlay"></div>
           
           <div class="logo-container">
-            ${cardConfig.showLogoRings ? `<div class="logo-decorative-ring"></div>` : ''}
-            <div class="logo-ring-wrapper">
-              <div class="logo-inner">
-                ${s.logoUrl ? `
-                  <img src="${s.logoUrl}" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
-                ` : `
-                  <span class="logo-text">${s.logo}</span>
-                `}
+            <div class="logo-blur-wrapper">
+              ${cardConfig.showLogoRings ? `<div class="logo-decorative-ring"></div>` : ''}
+              <div class="logo-ring-wrapper">
+                <div class="logo-inner">
+                  ${s.logoUrl ? `
+                    <img src="${s.logoUrl}" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
+                  ` : `
+                    <span class="logo-text">${s.logo}</span>
+                  `}
+                </div>
               </div>
             </div>
+            ${cardConfig.lockEnabled ? `
+              <div class="lock-overlay">
+                <svg viewBox="0 0 24 24" width="${cardConfig.lockSize}" height="${cardConfig.lockSize}" stroke="${cardConfig.lockColor}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));">
+                  <use xlink:href="#icon-${cardConfig.lockIcon}"></use>
+                </svg>
+              </div>
+            ` : ''}
           </div>
           <div class="info">
             <span class="handle">${s.handle}</span>
@@ -998,6 +1053,7 @@ export default function App() {
       cardConfig.whatsappIcon,
       cardConfig.instagramIcon,
       cardConfig.footerIcon,
+      cardConfig.lockIcon,
       'MapPin',
       'Search'
     ])).map(name => `<symbol id="icon-${name}" viewBox="0 0 24 24">${getIconPaths(name)}</symbol>`).join('');
@@ -1149,7 +1205,17 @@ export default function App() {
       font-weight: 700;
       color: rgba(255, 255, 255, 0.3);
     }
-    .logo-container { width: 120px; height: 120px; margin-bottom: 32px; position: relative; filter: blur(${(cardConfig.privacyBlur || 0) * 0.12}px); }
+    .logo-container { width: 120px; height: 120px; margin-bottom: 32px; position: relative; }
+    .logo-blur-wrapper { position: absolute; inset: 0; filter: blur(${(cardConfig.privacyBlur || 0) * 0.12}px); }
+    .lock-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 10;
+    }
     .logo-ring-wrapper {
       position: absolute; inset: 0; border-radius: 50%;
       border: ${cardConfig.logoBorderWidth}px solid ${cardConfig.logoBorderColor};
@@ -2373,6 +2439,84 @@ export default function App() {
                         className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
                       />
                       <p className="text-[9px] text-white/30 leading-relaxed">Borra foto, nome, @ e endereço dos cards. Útil para gravar vídeo sem expor contatos. Volte a 0% depois.</p>
+                    </div>
+
+                    {/* Cadeado de Privacidade */}
+                    <div className="space-y-3 pt-4 border-t border-white/5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] uppercase tracking-widest text-white/40">Cadeado de Privacidade</label>
+                        <button
+                          type="button"
+                          onClick={() => updateConfig({lockEnabled: !cardConfig.lockEnabled})}
+                          className={`relative w-10 h-5 rounded-full transition-colors ${cardConfig.lockEnabled ? 'bg-gold' : 'bg-white/10'}`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${cardConfig.lockEnabled ? 'left-[22px]' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+
+                      <AnimatePresence>
+                        {cardConfig.lockEnabled && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="space-y-4 overflow-hidden"
+                          >
+                            {/* Tamanho */}
+                            <div className="space-y-2 pt-2">
+                              <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-white/40">
+                                <label>Tamanho</label>
+                                <span>{cardConfig.lockSize}px</span>
+                              </div>
+                              <input
+                                type="range" min="16" max="72"
+                                value={cardConfig.lockSize}
+                                onChange={e => updateConfig({lockSize: parseInt(e.target.value)})}
+                                className="w-full accent-gold bg-white/5 h-1 rounded-full appearance-none"
+                              />
+                            </div>
+
+                            {/* Cor */}
+                            <div className="space-y-2">
+                              <label className="text-[10px] uppercase tracking-widest text-white/40">Cor</label>
+                              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-3">
+                                <input
+                                  type="color"
+                                  value={cardConfig.lockColor}
+                                  onChange={e => updateConfig({lockColor: e.target.value})}
+                                  className="w-6 h-6 bg-transparent border-none cursor-pointer"
+                                />
+                                <span className="text-[10px] text-white/60 font-mono">{cardConfig.lockColor}</span>
+                              </div>
+                            </div>
+
+                            {/* Ícone */}
+                            <div className="space-y-2">
+                              <label className="text-[10px] uppercase tracking-widest text-white/40">Ícone</label>
+                              <div className="flex flex-wrap gap-2">
+                                {LOCK_ICONS.map(iconName => {
+                                  const IconComp = (ICON_COMPONENTS as any)[iconName];
+                                  return (
+                                    <button
+                                      key={iconName}
+                                      type="button"
+                                      onClick={() => updateConfig({lockIcon: iconName})}
+                                      className={`p-2 rounded-lg border transition-all ${
+                                        cardConfig.lockIcon === iconName
+                                          ? 'bg-gold/10 border-gold/50 text-gold'
+                                          : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
+                                      }`}
+                                      title={iconName}
+                                    >
+                                      <IconComp size={18} />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     <div className="space-y-3">

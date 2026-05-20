@@ -46,6 +46,10 @@ export interface DbCardConfig {
   footer_icon_size: number
   code_size: number
   privacy_blur: number
+  lock_enabled: boolean
+  lock_size: number
+  lock_color: string
+  lock_icon: string
   updated_at: string
 }
 
