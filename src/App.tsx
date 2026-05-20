@@ -1009,7 +1009,10 @@ export default function App() {
       padding: 0;
       background-color: ${cardConfig.pageBackgroundColor};
       min-height: 100vh;
+      overflow-x: hidden;
+      max-width: 100%;
     }
+    *, *::before, *::after { box-sizing: border-box; }
     body {
       color: #FFFFFF;
       font-family: ${fontStack};
@@ -1017,12 +1020,16 @@ export default function App() {
       display: flex;
       flex-direction: column;
       align-items: center;
-      box-sizing: border-box;
+      max-width: 100%;
     }
     .container {
       width: 100%;
+      max-width: 100%;
       padding: 40px;
-      box-sizing: border-box;
+    }
+    @media (max-width: 640px) {
+      body { padding: 16px; }
+      .container { padding: 16px; }
     }
     .search-section {
       width: 100%;
@@ -1199,7 +1206,7 @@ export default function App() {
     </div>
 
     <div style="display: flex; align-items: center; gap: 24px; margin-bottom: 64px;">
-      <h2 style="font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4em; color: rgba(255, 255, 255, 0.3); white-space: nowrap;">Catálogo de Fornecedores${selectedCategory !== 'Todos' ? ` - ${selectedCategory}` : ''}</h2>
+      <h2 style="font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4em; color: rgba(255, 255, 255, 0.3); flex-shrink: 0;">Catálogo de Fornecedores${selectedCategory !== 'Todos' ? ` - ${selectedCategory}` : ''}</h2>
       <div style="height: 1px; width: 100%; background: linear-gradient(to right, ${cardConfig.iconColor}4d, transparent);"></div>
     </div>
     
