@@ -1612,7 +1612,15 @@ export default function App() {
           <>
 
         {/* Primary action */}
-        <div className="flex justify-end mb-12">
+        <div className="flex justify-end gap-3 mb-12">
+          <button
+            onClick={handleExport}
+            disabled={filteredSuppliers.length === 0}
+            className="flex items-center gap-2 px-6 py-3 rounded-full border border-gold/40 text-gold text-xs font-semibold tracking-widest uppercase hover:bg-gold/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Download size={16} />
+            Exportar HTML
+          </button>
           <button
             onClick={toggleRegister}
             className="flex items-center gap-2 px-6 py-3 rounded-full bg-gold text-black text-xs font-semibold tracking-widest uppercase hover:scale-105 transition-transform shadow-gold"
