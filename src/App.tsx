@@ -544,6 +544,8 @@ export default function App() {
   const [clientTab, setClientTab] = useState<'home' | 'favorites' | 'profile'>('home');
   const [showSuppliersList, setShowSuppliersList] = useState(false);
   const [banners, setBanners] = useState<DbBanner[]>([]);
+  const [bannerEditing, setBannerEditing] = useState<Partial<DbBanner> | null>(null);
+  const [bannerSaving, setBannerSaving] = useState(false);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -671,6 +673,61 @@ export default function App() {
       await supabase.from('favorites').insert({ user_id: userId, supplier_id: supplierId });
     }
   }, [session, favorites]);
+
+  // ===== Banners (admin) =====
+  const openNewBanner = (type: 'hero' | 'section') => {
+    const sameType = banners.filter(b => b.type === type);
+    setBannerEditing({
+      type,
+      image_url: '',
+      title: type === 'section' ? 'Novo Card' : '',
+      subtitle: '',
+      link_url: '',
+      order_index: sameType.length,
+      is_active: true,
+    });
+  };
+
+  const handleBannerImageUpload = async (file: File) => {
+    if (!bannerEditing) return;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const url = await uploadLogo(file, `banners/${Date.now()}.${ext}`);
+    if (url) setBannerEditing(prev => prev ? { ...prev, image_url: url } : null);
+  };
+
+  const handleSaveBanner = async () => {
+    if (!bannerEditing) return;
+    setBannerSaving(true);
+    if (bannerEditing.id) {
+      const { data, error } = await supabase.from('banners').update({
+        image_url: bannerEditing.image_url,
+        title: bannerEditing.title,
+        subtitle: bannerEditing.subtitle,
+        link_url: bannerEditing.link_url,
+      }).eq('id', bannerEditing.id).select().single();
+      if (error) console.error('[banner update]', error);
+      else if (data) setBanners(prev => prev.map(b => b.id === data.id ? data : b));
+    } else {
+      const { data, error } = await supabase.from('banners').insert({
+        type: bannerEditing.type,
+        image_url: bannerEditing.image_url ?? '',
+        title: bannerEditing.title ?? '',
+        subtitle: bannerEditing.subtitle ?? '',
+        link_url: bannerEditing.link_url ?? '',
+        order_index: bannerEditing.order_index ?? 0,
+      }).select().single();
+      if (error) console.error('[banner insert]', error);
+      else if (data) setBanners(prev => [...prev, data].sort((a, b) => a.order_index - b.order_index));
+    }
+    setBannerSaving(false);
+    setBannerEditing(null);
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    if (!window.confirm('Excluir esse banner?')) return;
+    setBanners(prev => prev.filter(b => b.id !== id));
+    await supabase.from('banners').delete().eq('id', id);
+  };
 
   // Batched config update with startTransition — keeps sliders/pickers 60fps
   const updateConfig = useCallback((updates: Partial<CardConfig>) => {
@@ -2268,6 +2325,106 @@ export default function App() {
             <p className="mt-3 text-[10px] uppercase tracking-widest text-white/20">Adicione fornecedores para habilitar a exportação</p>
           )}
         </section>
+
+        {/* Banners da Home */}
+        <section>
+          <h3 className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">Banners da Home</h3>
+
+          {/* Hero carousel banners */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="text-white text-sm font-bold uppercase tracking-widest">Banner Principal</h4>
+                <p className="text-[10px] text-white/40 mt-1">Carrossel no topo da home (até 3)</p>
+              </div>
+              {banners.filter(b => b.type === 'hero').length < 3 && (
+                <button
+                  onClick={() => openNewBanner('hero')}
+                  className="px-4 py-2 rounded-xl bg-gold/10 text-gold border border-gold/20 hover:bg-gold/20 transition-all text-[10px] font-bold uppercase tracking-widest"
+                >
+                  + Adicionar
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {banners.filter(b => b.type === 'hero').map(b => (
+                <div key={b.id} className="relative aspect-[16/9] rounded-xl overflow-hidden bg-white/5 border border-white/10 group">
+                  {b.image_url
+                    ? <img src={b.image_url} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">Sem imagem</div>}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button onClick={() => setBannerEditing(b)} className="p-2 rounded-full bg-white/10 text-white hover:bg-gold hover:text-black">
+                      <Edit2 size={14} />
+                    </button>
+                    <button onClick={() => handleDeleteBanner(b.id)} className="p-2 rounded-full bg-white/10 text-white hover:bg-red-500">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {banners.filter(b => b.type === 'hero').length === 0 && (
+                <p className="col-span-3 text-center text-xs text-white/30 py-6">Nenhum banner ainda. Clique em "Adicionar" para criar.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Section banners (cards) */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="text-white text-sm font-bold uppercase tracking-widest">Cards da Home</h4>
+                <p className="text-[10px] text-white/40 mt-1">Lista de Fornecedores + outros cards</p>
+              </div>
+              <button
+                onClick={() => openNewBanner('section')}
+                className="px-4 py-2 rounded-xl bg-gold/10 text-gold border border-gold/20 hover:bg-gold/20 transition-all text-[10px] font-bold uppercase tracking-widest"
+              >
+                + Adicionar
+              </button>
+            </div>
+            <div className="space-y-3">
+              {!banners.find(b => b.type === 'section' && b.title === 'Lista de Fornecedores') && (
+                <button
+                  onClick={() => setBannerEditing({ type: 'section', image_url: '', title: 'Lista de Fornecedores', subtitle: '', link_url: '', order_index: 0, is_active: true })}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gold/5 border border-dashed border-gold/30 text-gold hover:bg-gold/10 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <ImageIcon size={18} />
+                    <div className="text-left">
+                      <div className="text-xs font-bold uppercase tracking-widest">Lista de Fornecedores</div>
+                      <div className="text-[10px] text-white/40">Definir capa do card principal</div>
+                    </div>
+                  </div>
+                  <Plus size={16} />
+                </button>
+              )}
+              {banners.filter(b => b.type === 'section').map(b => (
+                <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-black/40 shrink-0">
+                    {b.image_url
+                      ? <img src={b.image_url} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-white/20"><ImageIcon size={20} /></div>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white text-sm font-bold truncate">{b.title || 'Sem título'}</div>
+                    {b.subtitle && <div className="text-white/40 text-xs truncate">{b.subtitle}</div>}
+                    {b.title === 'Lista de Fornecedores' && (
+                      <div className="text-[9px] text-gold uppercase tracking-widest mt-0.5">Card principal · não exclua</div>
+                    )}
+                  </div>
+                  <button onClick={() => setBannerEditing(b)} className="p-2 rounded-full text-white/40 hover:text-gold hover:bg-white/5">
+                    <Edit2 size={14} />
+                  </button>
+                  {b.title !== 'Lista de Fornecedores' && (
+                    <button onClick={() => handleDeleteBanner(b.id)} className="p-2 rounded-full text-white/40 hover:text-red-400 hover:bg-white/5">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </div>
     )}
 
@@ -2975,6 +3132,98 @@ export default function App() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Banner Edit Modal */}
+      <AnimatePresence>
+        {bannerEditing && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setBannerEditing(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-[#121212] border border-gold/30 rounded-3xl p-8 shadow-gold"
+            >
+              <button onClick={() => setBannerEditing(null)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/5 text-white/40 hover:text-white">
+                <X size={20} />
+              </button>
+              <h3 className="text-xl font-display text-white mb-1">
+                {bannerEditing.id ? 'Editar' : 'Novo'} {bannerEditing.type === 'hero' ? 'Banner Principal' : 'Card'}
+              </h3>
+              <p className="text-[10px] uppercase tracking-widest text-white/40 mb-6">
+                {bannerEditing.type === 'hero' ? 'Carrossel da Home' : 'Card da Home'}
+              </p>
+
+              <div className="space-y-4">
+                {/* Image */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1 mb-2 block">Imagem</label>
+                  <label className="relative block aspect-[16/9] rounded-2xl overflow-hidden bg-white/5 border-2 border-dashed border-white/10 hover:border-gold/30 cursor-pointer transition-colors">
+                    <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) handleBannerImageUpload(f); }} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    {bannerEditing.image_url
+                      ? <img src={bannerEditing.image_url} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex flex-col items-center justify-center text-white/30">
+                          <Upload size={24} />
+                          <span className="text-[10px] uppercase tracking-widest mt-2">Clique pra fazer upload</span>
+                        </div>}
+                  </label>
+                </div>
+
+                {/* Title (only for section) */}
+                {bannerEditing.type === 'section' && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1 mb-2 block">Título</label>
+                    <input
+                      type="text"
+                      disabled={bannerEditing.title === 'Lista de Fornecedores' && !!bannerEditing.id}
+                      value={bannerEditing.title ?? ''}
+                      onChange={e => setBannerEditing(prev => prev ? { ...prev, title: e.target.value } : null)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm outline-none focus:border-gold/50 disabled:opacity-50"
+                    />
+                  </div>
+                )}
+
+                {/* Subtitle (only for section) */}
+                {bannerEditing.type === 'section' && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1 mb-2 block">Subtítulo (opcional)</label>
+                    <input
+                      type="text"
+                      value={bannerEditing.subtitle ?? ''}
+                      onChange={e => setBannerEditing(prev => prev ? { ...prev, subtitle: e.target.value } : null)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm outline-none focus:border-gold/50"
+                    />
+                  </div>
+                )}
+
+                {/* Link URL (not for Lista de Fornecedores) */}
+                {bannerEditing.title !== 'Lista de Fornecedores' && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1 mb-2 block">Link (opcional)</label>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={bannerEditing.link_url ?? ''}
+                      onChange={e => setBannerEditing(prev => prev ? { ...prev, link_url: e.target.value } : null)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm outline-none focus:border-gold/50"
+                    />
+                  </div>
+                )}
+
+                <button
+                  onClick={handleSaveBanner}
+                  disabled={bannerSaving || !bannerEditing.image_url}
+                  className="w-full mt-2 py-4 bg-gold text-black rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                >
+                  {bannerSaving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
