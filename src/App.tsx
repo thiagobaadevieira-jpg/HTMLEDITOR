@@ -749,14 +749,36 @@ export default function App() {
 
   const allCategories = ['Todos', ...categories];
 
+  // Normaliza nome de categoria — remove acentos, espaços extras, lowercase
+  // (usado só para comparar; o nome salvo mantém o texto original do usuário)
+  const normalizeCategory = (s: string): string =>
+    (s ?? '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+
+  // Procura categoria existente (ignorando acento/case) e retorna o nome canônico se houver
+  const findExistingCategory = (name: string, list: string[] = categories): string | null => {
+    const norm = normalizeCategory(name);
+    if (!norm) return null;
+    return list.find(c => normalizeCategory(c) === norm) ?? null;
+  };
+
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newCategoryName && !categories.includes(newCategoryName)) {
-      setCategories(prev => [...prev, newCategoryName]);
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) return;
+
+    const existing = findExistingCategory(trimmed);
+    if (existing) {
+      // Já existe variante — não cria duplicata, fecha o form e seleciona a existente
+      setSelectedCategory(existing);
       setNewCategoryName('');
       setIsAddingCategory(false);
-      await supabase.from('categories').insert({ name: newCategoryName });
+      return;
     }
+
+    setCategories(prev => [...prev, trimmed]);
+    setNewCategoryName('');
+    setIsAddingCategory(false);
+    await supabase.from('categories').insert({ name: trimmed });
   };
 
   // Extracts Instagram username — handles raw username, @username, or full instagram.com URL
@@ -786,12 +808,19 @@ export default function App() {
         const duplicates: string[] = [];
         const rowsToInsert: Array<Omit<DbSupplier, 'id' | 'numeric_id' | 'created_at' | 'updated_at'>> = [];
 
+        // Trackeia categorias canônicas (incluindo as criadas durante este import)
+        const knownCategories: string[] = [...categories];
+
         data.forEach((row: any) => {
           const name = (row['Nome da Loja'] || row['Nome'] || '').toString().trim();
           const instagram = normalizeInstagram(row['Instagram']);
           const whatsapp = (row['WhatsApp'] || row['Whats'] || row['whats'] || '').toString().replace(/\D/g, '');
           const address = (row['Endereço'] || row['Endereco'] || '').toString();
-          const category = (row['Categoria'] || 'Importado').toString();
+          const rawCategory = (row['Categoria'] || 'Importado').toString().trim();
+          // Se já existe variante (com/sem acento, com/sem maiúscula), usa a canônica
+          const matched = findExistingCategory(rawCategory, knownCategories);
+          const category = matched ?? rawCategory;
+          if (!matched) knownCategories.push(rawCategory);
           const logo_url = (row['Logo URL'] || row['URL Imagem'] || '').toString();
 
           if (!name) return;
