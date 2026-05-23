@@ -568,6 +568,10 @@ export default function App() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+  const [categoryDeleteAction, setCategoryDeleteAction] = useState<'move' | 'orphan'>('move');
+  const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<string>('');
+  const [deletingCategory, setDeletingCategory] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ count: number, names: string[], type: 'import' | 'export' } | null>(null);
   const [copiedHtml, setCopiedHtml] = useState(false);
@@ -779,6 +783,43 @@ export default function App() {
     setNewCategoryName('');
     setIsAddingCategory(false);
     await supabase.from('categories').insert({ name: trimmed });
+  };
+
+  const openDeleteCategory = (cat: string) => {
+    setCategoryToDelete(cat);
+    setCategoryDeleteAction('move');
+    // Default destination = first available category that isn't the one being deleted
+    const firstOther = categories.find(c => c !== cat) ?? '';
+    setCategoryDeleteTarget(firstOther);
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    setDeletingCategory(true);
+    const oldCat = categoryToDelete;
+    const count = suppliers.filter(s => s.category === oldCat).length;
+
+    try {
+      // Se há fornecedores e usuário escolheu mover → atualiza category dos suppliers
+      if (count > 0 && categoryDeleteAction === 'move' && categoryDeleteTarget) {
+        setSuppliers(prev => prev.map(s => s.category === oldCat ? { ...s, category: categoryDeleteTarget } : s));
+        const { error } = await supabase.from('suppliers').update({ category: categoryDeleteTarget }).eq('category', oldCat);
+        if (error) { console.error('[move suppliers]', error); throw error; }
+      }
+
+      // Remove categoria
+      setCategories(prev => prev.filter(c => c !== oldCat));
+      if (selectedCategory === oldCat) setSelectedCategory('Todos');
+      const { error: delErr } = await supabase.from('categories').delete().eq('name', oldCat);
+      if (delErr) { console.error('[delete category]', delErr); throw delErr; }
+    } catch (e) {
+      console.error('[handleConfirmDeleteCategory]', e);
+    } finally {
+      setDeletingCategory(false);
+      setCategoryToDelete(null);
+      setCategoryDeleteTarget('');
+      setCategoryDeleteAction('move');
+    }
   };
 
   // Extracts Instagram username — handles raw username, @username, or full instagram.com URL
@@ -2034,23 +2075,36 @@ export default function App() {
                   <div className="max-h-80 overflow-y-auto py-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent">
                     {allCategories.map((cat) => {
                       const isActive = cat === selectedCategory;
+                      const isTodos = cat === 'Todos';
                       return (
-                        <button
+                        <div
                           key={cat}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategory(cat);
-                            setIsCategoryDropdownOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between gap-3 px-5 py-3 text-left text-xs uppercase tracking-widest transition-colors ${
-                            isActive
-                              ? 'bg-gold/10 text-gold'
-                              : 'text-white/60 hover:bg-white/5 hover:text-white'
+                          className={`group/cat flex items-center transition-colors ${
+                            isActive ? 'bg-gold/10 text-gold' : 'text-white/60 hover:bg-white/5 hover:text-white'
                           }`}
                         >
-                          <span className="truncate">{cat}</span>
-                          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(cat);
+                              setIsCategoryDropdownOpen(false);
+                            }}
+                            className="flex-1 flex items-center justify-between gap-3 px-5 py-3 text-left text-xs uppercase tracking-widest min-w-0"
+                          >
+                            <span className="truncate">{cat}</span>
+                            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
+                          </button>
+                          {!isTodos && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); openDeleteCategory(cat); setIsCategoryDropdownOpen(false); }}
+                              className="opacity-0 group-hover/cat:opacity-100 p-3 text-white/30 hover:text-red-400 transition-all"
+                              title={`Excluir categoria "${cat}"`}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -2873,6 +2927,117 @@ export default function App() {
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* Delete Category Confirmation Modal */}
+      <AnimatePresence>
+        {categoryToDelete && (() => {
+          const count = suppliers.filter(s => s.category === categoryToDelete).length;
+          const targets = categories.filter(c => c !== categoryToDelete);
+          return (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => !deletingCategory && setCategoryToDelete(null)}
+                className="absolute inset-0 bg-black/90 backdrop-blur-md"
+              />
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="relative w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-[32px] p-8 shadow-2xl"
+              >
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6 text-red-400">
+                    <Trash2 size={28} />
+                  </div>
+                  <h3 className="text-xl font-display text-white mb-2">Excluir categoria?</h3>
+                  <p className="text-white/40 text-sm mb-6">
+                    <span className="text-gold font-bold">"{categoryToDelete}"</span>
+                  </p>
+
+                  {count === 0 ? (
+                    <p className="text-white/50 text-xs leading-relaxed mb-8">
+                      Nenhum fornecedor usa essa categoria. Pode excluir tranquilo.
+                    </p>
+                  ) : (
+                    <div className="text-left">
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-5">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
+                          <p className="text-amber-300/90 text-xs leading-relaxed">
+                            <strong>{count} fornecedor(es)</strong> estão nessa categoria. Escolha o que fazer:
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 mb-6">
+                        <button
+                          type="button"
+                          onClick={() => setCategoryDeleteAction('move')}
+                          className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                            categoryDeleteAction === 'move'
+                              ? 'bg-gold/10 border-gold/40'
+                              : 'bg-white/5 border-white/10 hover:border-white/20'
+                          }`}
+                        >
+                          <div className={`text-[10px] uppercase tracking-widest font-bold mb-2 ${categoryDeleteAction === 'move' ? 'text-gold' : 'text-white/60'}`}>
+                            🔄 Mover para outra categoria
+                          </div>
+                          {categoryDeleteAction === 'move' && (
+                            <select
+                              value={categoryDeleteTarget}
+                              onChange={e => setCategoryDeleteTarget(e.target.value)}
+                              onClick={e => e.stopPropagation()}
+                              className="w-full mt-2 bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-white text-xs outline-none focus:border-gold/50 appearance-none cursor-pointer"
+                            >
+                              {targets.length === 0 && <option value="">Sem outra categoria — escolha "órfão"</option>}
+                              {targets.map(c => <option key={c} value={c} className="bg-[#121212]">{c}</option>)}
+                            </select>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setCategoryDeleteAction('orphan')}
+                          className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                            categoryDeleteAction === 'orphan'
+                              ? 'bg-red-500/10 border-red-500/40'
+                              : 'bg-white/5 border-white/10 hover:border-white/20'
+                          }`}
+                        >
+                          <div className={`text-[10px] uppercase tracking-widest font-bold mb-1 ${categoryDeleteAction === 'orphan' ? 'text-red-400' : 'text-white/60'}`}>
+                            🗑️ Apagar a categoria mesmo assim
+                          </div>
+                          <div className="text-[10px] text-white/40 leading-relaxed">
+                            Fornecedores ficam órfãos (mantém o texto, mas a categoria some do filtro)
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setCategoryToDelete(null)}
+                      disabled={deletingCategory}
+                      className="flex-1 py-4 rounded-2xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleConfirmDeleteCategory}
+                      disabled={deletingCategory || (count > 0 && categoryDeleteAction === 'move' && !categoryDeleteTarget)}
+                      className="flex-1 py-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white transition-all text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                    >
+                      {deletingCategory ? 'Excluindo...' : 'Confirmar Exclusão'}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Duplicate Warning Modal */}
