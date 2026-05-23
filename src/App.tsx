@@ -1851,7 +1851,15 @@ export default function App() {
           <>
 
         {/* Primary action */}
-        <div className="flex justify-end gap-3 mb-12 flex-wrap">
+        <div className="flex justify-end items-center gap-3 mb-12 flex-wrap">
+          <div className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/5 border border-white/10 text-white/60 text-xs font-semibold tracking-widest uppercase">
+            <Store size={14} className="text-gold" />
+            <span className="text-white"><span className="text-gold font-bold">{suppliers.length}</span> {suppliers.length === 1 ? 'Fornecedor' : 'Fornecedores'}</span>
+            {selectedCategory !== 'Todos' && filteredSuppliers.length !== suppliers.length && (
+              <span className="text-white/40 normal-case">· {filteredSuppliers.length} na categoria</span>
+            )}
+          </div>
+
           <button
             onClick={() => handleExport('copy')}
             disabled={filteredSuppliers.length === 0}
