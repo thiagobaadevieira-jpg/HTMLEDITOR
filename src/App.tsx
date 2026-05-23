@@ -1113,7 +1113,7 @@ export default function App() {
               <div class="logo-ring-wrapper">
                 <div class="logo-inner">
                   ${s.logoUrl ? `
-                    <img src="${s.logoUrl}" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <img src="${s.logoUrl}" loading="${i === 0 ? 'eager' : 'lazy'}" decoding="async" ${i === 0 ? 'fetchpriority="high"' : ''} style="width: 100%; height: 100%; object-fit: cover;" />
                   ` : `
                     <span class="logo-text">${s.logo}</span>
                   `}
@@ -1271,6 +1271,8 @@ export default function App() {
       position: relative;
       height: 100%;
       transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s ease;
+      content-visibility: auto;
+      contain-intrinsic-size: 0 640px;
     }
     .card-wrapper.hidden,
     .card-wrapper.lazy-hidden {
