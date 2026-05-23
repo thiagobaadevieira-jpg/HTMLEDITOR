@@ -1271,8 +1271,6 @@ export default function App() {
       position: relative;
       height: 100%;
       transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s ease;
-      content-visibility: auto;
-      contain-intrinsic-size: 0 640px;
     }
     .card-wrapper.hidden,
     .card-wrapper.lazy-hidden {
