@@ -572,6 +572,10 @@ export default function App() {
   const [categoryDeleteAction, setCategoryDeleteAction] = useState<'move' | 'orphan'>('move');
   const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<string>('');
   const [deletingCategory, setDeletingCategory] = useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState<string | null>(null);
+  const [categoryEditName, setCategoryEditName] = useState('');
+  const [savingCategoryEdit, setSavingCategoryEdit] = useState(false);
+  const [categoryEditError, setCategoryEditError] = useState('');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ count: number, names: string[], type: 'import' | 'export' } | null>(null);
   const [copiedHtml, setCopiedHtml] = useState(false);
@@ -819,6 +823,50 @@ export default function App() {
       setCategoryToDelete(null);
       setCategoryDeleteTarget('');
       setCategoryDeleteAction('move');
+    }
+  };
+
+  const openEditCategory = (cat: string) => {
+    setCategoryToEdit(cat);
+    setCategoryEditName(cat);
+    setCategoryEditError('');
+  };
+
+  const handleSaveEditCategory = async () => {
+    if (!categoryToEdit) return;
+    const trimmed = categoryEditName.trim();
+    if (!trimmed) { setCategoryEditError('Nome não pode estar vazio.'); return; }
+    if (trimmed === categoryToEdit) { setCategoryToEdit(null); return; }
+
+    // Verifica se já existe outra categoria com nome equivalente (case/acento)
+    const conflict = categories.find(c => c !== categoryToEdit && normalizeCategory(c) === normalizeCategory(trimmed));
+    if (conflict) {
+      setCategoryEditError(`Já existe a categoria "${conflict}". Use a função de excluir/mesclar.`);
+      return;
+    }
+
+    setSavingCategoryEdit(true);
+    const oldCat = categoryToEdit;
+    try {
+      // 1. Atualiza suppliers que usam a categoria antiga
+      setSuppliers(prev => prev.map(s => s.category === oldCat ? { ...s, category: trimmed } : s));
+      const { error: supErr } = await supabase.from('suppliers').update({ category: trimmed }).eq('category', oldCat);
+      if (supErr) throw supErr;
+
+      // 2. Insere nova + apaga antiga (renomear == insert+delete porque nome é UNIQUE)
+      setCategories(prev => prev.map(c => c === oldCat ? trimmed : c));
+      if (selectedCategory === oldCat) setSelectedCategory(trimmed);
+      await supabase.from('categories').upsert({ name: trimmed }, { onConflict: 'name' });
+      await supabase.from('categories').delete().eq('name', oldCat);
+
+      setCategoryToEdit(null);
+      setCategoryEditName('');
+      setCategoryEditError('');
+    } catch (e: any) {
+      console.error('[edit category]', e);
+      setCategoryEditError(e?.message || 'Erro ao salvar.');
+    } finally {
+      setSavingCategoryEdit(false);
     }
   };
 
@@ -2095,14 +2143,24 @@ export default function App() {
                             {isActive && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
                           </button>
                           {!isTodos && (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); openDeleteCategory(cat); setIsCategoryDropdownOpen(false); }}
-                              className="opacity-0 group-hover/cat:opacity-100 p-3 text-white/30 hover:text-red-400 transition-all"
-                              title={`Excluir categoria "${cat}"`}
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openEditCategory(cat); setIsCategoryDropdownOpen(false); }}
+                                className="opacity-0 group-hover/cat:opacity-100 p-3 text-white/30 hover:text-gold transition-all"
+                                title={`Editar categoria "${cat}"`}
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openDeleteCategory(cat); setIsCategoryDropdownOpen(false); }}
+                                className="opacity-0 group-hover/cat:opacity-100 p-3 text-white/30 hover:text-red-400 transition-all"
+                                title={`Excluir categoria "${cat}"`}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
                           )}
                         </div>
                       );
@@ -2924,6 +2982,84 @@ export default function App() {
                   </button>
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Category Modal */}
+      <AnimatePresence>
+        {categoryToEdit && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !savingCategoryEdit && setCategoryToEdit(null)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="text-center mb-6">
+                <div className="w-14 h-14 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-4 text-gold">
+                  <Edit2 size={24} />
+                </div>
+                <h3 className="text-xl font-display text-white mb-1">Editar Categoria</h3>
+                <p className="text-[10px] uppercase tracking-widest text-white/40">
+                  Renomeando "{categoryToEdit}"
+                </p>
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); handleSaveEditCategory(); }} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40 ml-1">Novo nome</label>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={categoryEditName}
+                    onChange={e => { setCategoryEditName(e.target.value); setCategoryEditError(''); }}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 outline-none text-white text-sm focus:border-gold/50 transition-colors"
+                  />
+                </div>
+
+                <AnimatePresence>
+                  {categoryEditError && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex items-start gap-2 text-amber-400/90 text-xs px-1"
+                    >
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                      <span>{categoryEditError}</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <p className="text-[10px] text-white/30 leading-relaxed px-1">
+                  Todos os fornecedores que estão nessa categoria serão atualizados automaticamente.
+                </p>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCategoryToEdit(null)}
+                    disabled={savingCategoryEdit}
+                    className="flex-1 py-4 rounded-2xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingCategoryEdit || !categoryEditName.trim() || categoryEditName.trim() === categoryToEdit}
+                    className="flex-1 py-4 rounded-2xl bg-gold text-black hover:brightness-110 transition-all text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {savingCategoryEdit ? 'Salvando...' : 'Salvar'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
