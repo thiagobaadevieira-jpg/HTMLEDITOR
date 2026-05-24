@@ -1173,7 +1173,7 @@ export default function App() {
                 ${getIconSvg(cardConfig.whatsappIcon, cardConfig.whatsappIconUrl, cardConfig.socialIconSize)}
               </a>` : ''}
               ${cardConfig.showInstagramIcon ? `
-              <a href="instagram://user?username=${s.instagram}" class="icon-circle">
+              <a href="https://www.instagram.com/${s.instagram}/" rel="noopener noreferrer" class="icon-circle">
                 ${getIconSvg(cardConfig.instagramIcon, cardConfig.instagramIconUrl, cardConfig.socialIconSize)}
               </a>` : ''}
             </div>
