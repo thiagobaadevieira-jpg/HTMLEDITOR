@@ -1234,6 +1234,7 @@ export default function App() {
       color: #FFFFFF;
       font-family: ${fontStack};
       padding: 40px;
+      ${cardConfig.warningText && cardConfig.warningText.trim() ? 'padding-bottom: 140px;' : ''}
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1245,7 +1246,7 @@ export default function App() {
       padding: 40px;
     }
     @media (max-width: 640px) {
-      body { padding: 16px; }
+      body { padding: 16px; ${cardConfig.warningText && cardConfig.warningText.trim() ? 'padding-bottom: 130px;' : ''} }
       .container { padding: 16px; }
     }
     .search-section {
@@ -1457,12 +1458,6 @@ export default function App() {
           <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3em;">${cardConfig.footerBrandName}</div>
         </div>
         
-        ${cardConfig.warningText && cardConfig.warningText.trim() ? `
-        <div style="max-width: 720px; margin: 8px auto 16px; padding: 16px 20px; background: rgba(251, 191, 36, 0.06); border: 1px solid rgba(251, 191, 36, 0.25); border-radius: 16px;">
-          <p style="color: rgba(251, 191, 36, 0.85); font-size: 11px; line-height: 1.6; text-align: center; margin: 0; letter-spacing: 0.02em;">${cardConfig.warningText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-        </div>
-        ` : ''}
-
         <p style="color: rgba(255, 255, 255, 0.2); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">
           © 2026 ${cardConfig.footerBrandName}. Todos os direitos reservados.
         </p>
@@ -1543,6 +1538,12 @@ export default function App() {
     resetSearch();
     window.addEventListener('pageshow', resetSearch);
   </script>
+
+  ${cardConfig.warningText && cardConfig.warningText.trim() ? `
+  <div style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; padding: 12px 16px; background: rgba(15, 15, 15, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid rgba(251, 191, 36, 0.35); box-shadow: 0 -8px 24px rgba(0,0,0,0.5);">
+    <p style="color: rgba(251, 191, 36, 0.9); font-size: 11px; line-height: 1.5; text-align: center; margin: 0 auto; max-width: 720px; letter-spacing: 0.01em;">${cardConfig.warningText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+  </div>
+  ` : ''}
 </body>
 </html>
     `
