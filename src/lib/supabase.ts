@@ -51,6 +51,9 @@ export interface DbCardConfig {
   lock_size: number
   lock_color: string
   lock_icon: string
+  show_whatsapp_icon: boolean
+  show_instagram_icon: boolean
+  warning_text: string
   updated_at: string
 }
 

@@ -99,6 +99,9 @@ const DEFAULT_CARD_CONFIG: CardConfig = {
   lockSize: 36,
   lockColor: '#C89A62',
   lockIcon: 'Lock',
+  showWhatsappIcon: true,
+  showInstagramIcon: true,
+  warningText: '⚠️ Esta lista é apenas um guia. Não nos responsabilizamos por golpes ou problemas em negociações. Pesquise a loja antes de comprar, solicite fotos e gravações da loja antes da compra.',
 };
 
 // Types
@@ -131,6 +134,9 @@ interface CardConfig {
   lockSize: number;
   lockColor: string;
   lockIcon: string;
+  showWhatsappIcon: boolean;
+  showInstagramIcon: boolean;
+  warningText: string;
 }
 
 interface Supplier {
@@ -392,50 +398,54 @@ const SupplierCard = memo(function SupplierCard({
           />
           
           {/* Social Icons */}
-          {config.showIcons && (
+          {(config.showWhatsappIcon || config.showInstagramIcon) && (
             <div className="flex justify-center gap-6 mb-8 w-full">
-              <a 
-                href={`https://wa.me/${supplier.whatsapp}`}
-                target="_blank"
-                className="p-3 rounded-full border transition-all duration-300"
-                style={{ 
-                  borderColor: `${config.iconColor}4d`,
-                  color: `${config.iconColor}b3`,
-                  backgroundColor: 'transparent'
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.backgroundColor = `${config.iconColor}1a`;
-                  (e.currentTarget as HTMLElement).style.color = config.iconColor;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
-                  (e.currentTarget as HTMLElement).style.color = `${config.iconColor}b3`;
-                }}
-                title="WhatsApp"
-              >
-                {renderIcon(config.whatsappIcon, config.whatsappIconUrl, config.socialIconSize)}
-              </a>
-              <a 
-                href={`https://instagram.com/${supplier.instagram}`}
-                target="_blank"
-                className="p-3 rounded-full border transition-all duration-300"
-                style={{ 
-                  borderColor: `${config.iconColor}4d`,
-                  color: `${config.iconColor}b3`,
-                  backgroundColor: 'transparent'
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.backgroundColor = `${config.iconColor}1a`;
-                  (e.currentTarget as HTMLElement).style.color = config.iconColor;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
-                  (e.currentTarget as HTMLElement).style.color = `${config.iconColor}b3`;
-                }}
-                title="Instagram"
-              >
-                {renderIcon(config.instagramIcon, config.instagramIconUrl, config.socialIconSize)}
-              </a>
+              {config.showWhatsappIcon && (
+                <a
+                  href={`https://wa.me/${supplier.whatsapp}`}
+                  target="_blank"
+                  className="p-3 rounded-full border transition-all duration-300"
+                  style={{
+                    borderColor: `${config.iconColor}4d`,
+                    color: `${config.iconColor}b3`,
+                    backgroundColor: 'transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = `${config.iconColor}1a`;
+                    (e.currentTarget as HTMLElement).style.color = config.iconColor;
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color = `${config.iconColor}b3`;
+                  }}
+                  title="WhatsApp"
+                >
+                  {renderIcon(config.whatsappIcon, config.whatsappIconUrl, config.socialIconSize)}
+                </a>
+              )}
+              {config.showInstagramIcon && (
+                <a
+                  href={`https://instagram.com/${supplier.instagram}`}
+                  target="_blank"
+                  className="p-3 rounded-full border transition-all duration-300"
+                  style={{
+                    borderColor: `${config.iconColor}4d`,
+                    color: `${config.iconColor}b3`,
+                    backgroundColor: 'transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = `${config.iconColor}1a`;
+                    (e.currentTarget as HTMLElement).style.color = config.iconColor;
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color = `${config.iconColor}b3`;
+                  }}
+                  title="Instagram"
+                >
+                  {renderIcon(config.instagramIcon, config.instagramIconUrl, config.socialIconSize)}
+                </a>
+              )}
             </div>
           )}
 
@@ -524,6 +534,9 @@ function dbToCardConfig(row: DbCardConfig): CardConfig {
     lockSize: row.lock_size ?? 36,
     lockColor: row.lock_color ?? '#C89A62',
     lockIcon: row.lock_icon ?? 'Lock',
+    showWhatsappIcon: row.show_whatsapp_icon ?? true,
+    showInstagramIcon: row.show_instagram_icon ?? true,
+    warningText: row.warning_text ?? '',
   }
 }
 
@@ -557,6 +570,9 @@ function cardConfigToDb(config: CardConfig): Omit<DbCardConfig, 'id' | 'updated_
     lock_size: config.lockSize,
     lock_color: config.lockColor,
     lock_icon: config.lockIcon,
+    show_whatsapp_icon: config.showWhatsappIcon,
+    show_instagram_icon: config.showInstagramIcon,
+    warning_text: config.warningText,
   }
 }
 
@@ -1150,14 +1166,16 @@ export default function App() {
             <span class="handle">${s.handle}</span>
             <h3 class="name">${s.name}</h3>
             <div class="divider"></div>
-            ${cardConfig.showIcons ? `
+            ${(cardConfig.showWhatsappIcon || cardConfig.showInstagramIcon) ? `
             <div class="social-icons">
+              ${cardConfig.showWhatsappIcon ? `
               <a href="whatsapp://send?phone=${s.whatsapp}" class="icon-circle">
                 ${getIconSvg(cardConfig.whatsappIcon, cardConfig.whatsappIconUrl, cardConfig.socialIconSize)}
-              </a>
+              </a>` : ''}
+              ${cardConfig.showInstagramIcon ? `
               <a href="instagram://user?username=${s.instagram}" class="icon-circle">
                 ${getIconSvg(cardConfig.instagramIcon, cardConfig.instagramIconUrl, cardConfig.socialIconSize)}
-              </a>
+              </a>` : ''}
             </div>
             ` : ''}
             <div class="category-pill">${s.category}</div>
@@ -1439,6 +1457,12 @@ export default function App() {
           <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3em;">${cardConfig.footerBrandName}</div>
         </div>
         
+        ${cardConfig.warningText && cardConfig.warningText.trim() ? `
+        <div style="max-width: 720px; margin: 8px auto 16px; padding: 16px 20px; background: rgba(251, 191, 36, 0.06); border: 1px solid rgba(251, 191, 36, 0.25); border-radius: 16px;">
+          <p style="color: rgba(251, 191, 36, 0.85); font-size: 11px; line-height: 1.6; text-align: center; margin: 0; letter-spacing: 0.02em;">${cardConfig.warningText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+        </div>
+        ` : ''}
+
         <p style="color: rgba(255, 255, 255, 0.2); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">
           © 2026 ${cardConfig.footerBrandName}. Todos os direitos reservados.
         </p>
@@ -2593,22 +2617,35 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Show Icons */}
+              {/* Show Icons (separated WhatsApp/Instagram) */}
               <div className="space-y-6 pt-4 border-t border-white/5">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] uppercase tracking-widest text-white/40">Exibir Ícones</label>
-                  <button 
-                    onClick={() => updateConfig({showIcons: !cardConfig.showIcons})}
-                    className={`w-10 h-5 rounded-full transition-all relative ${cardConfig.showIcons ? 'bg-gold' : 'bg-white/10'}`}
+                  <label className="text-[10px] uppercase tracking-widest text-white/40">Mostrar WhatsApp</label>
+                  <button
+                    onClick={() => updateConfig({showWhatsappIcon: !cardConfig.showWhatsappIcon})}
+                    className={`w-10 h-5 rounded-full transition-all relative ${cardConfig.showWhatsappIcon ? 'bg-gold' : 'bg-white/10'}`}
                   >
-                    <motion.div 
-                      animate={{ x: cardConfig.showIcons ? 22 : 4 }}
+                    <motion.div
+                      animate={{ x: cardConfig.showWhatsappIcon ? 22 : 4 }}
                       className="absolute top-1 w-3 h-3 rounded-full bg-white"
                     />
                   </button>
                 </div>
 
-                {cardConfig.showIcons && (
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase tracking-widest text-white/40">Mostrar Instagram</label>
+                  <button
+                    onClick={() => updateConfig({showInstagramIcon: !cardConfig.showInstagramIcon})}
+                    className={`w-10 h-5 rounded-full transition-all relative ${cardConfig.showInstagramIcon ? 'bg-gold' : 'bg-white/10'}`}
+                  >
+                    <motion.div
+                      animate={{ x: cardConfig.showInstagramIcon ? 22 : 4 }}
+                      className="absolute top-1 w-3 h-3 rounded-full bg-white"
+                    />
+                  </button>
+                </div>
+
+                {(cardConfig.showWhatsappIcon || cardConfig.showInstagramIcon) && (
                   <>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-white/40">
@@ -2877,13 +2914,37 @@ export default function App() {
                   <div className="grid grid-cols-1 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] uppercase tracking-widest text-white/40">Nome da Marca</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={cardConfig.footerBrandName}
                         onChange={e => updateConfig({footerBrandName: e.target.value})}
                         className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-gold/50 transition-colors"
                         placeholder="Ex: Luxe Directory"
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] uppercase tracking-widest text-white/40">Aviso do Rodapé</label>
+                        {cardConfig.warningText !== DEFAULT_CARD_CONFIG.warningText && (
+                          <button
+                            type="button"
+                            onClick={() => updateConfig({ warningText: DEFAULT_CARD_CONFIG.warningText })}
+                            className="text-[9px] uppercase tracking-widest text-gold/60 hover:text-gold transition-colors"
+                            title="Restaurar texto padrão"
+                          >
+                            ↺ Restaurar
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        value={cardConfig.warningText}
+                        onChange={e => updateConfig({ warningText: e.target.value })}
+                        rows={5}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-gold/50 transition-colors resize-y leading-relaxed"
+                        placeholder="Texto de aviso que aparece no rodapé do HTML exportado..."
+                      />
+                      <p className="text-[9px] text-white/30 leading-relaxed">Aparece apenas no HTML exportado. Deixe vazio para não exibir.</p>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] uppercase tracking-widest text-white/40">Logo do Rodapé</label>
