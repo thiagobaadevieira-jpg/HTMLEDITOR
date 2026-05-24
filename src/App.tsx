@@ -2453,7 +2453,7 @@ export default function App() {
                             className="flex-1 flex items-center gap-2 px-5 py-3 text-left text-xs uppercase tracking-widest min-w-0"
                           >
                             {isFavorites && <Heart size={12} fill={isActive ? 'currentColor' : 'none'} className="shrink-0" />}
-                            <span className="truncate flex-1">{cat}{isFavorites && favoriteCount > 0 ? ` (${favoriteCount})` : ''}</span>
+                            <span className="truncate flex-1">{cat}</span>
                             {isActive && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
                           </button>
                           {!isVirtual && (
