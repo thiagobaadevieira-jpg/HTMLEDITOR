@@ -44,6 +44,7 @@ import {
   Image as ImageIcon,
   Copy,
   Check,
+  Heart,
   Lock,
   LockKeyhole,
   KeyRound,
@@ -143,6 +144,7 @@ interface Supplier {
   instagram: string;
   logo: string;
   logoUrl?: string;
+  isFavorite: boolean;
 }
 
 // Mock Data
@@ -226,11 +228,13 @@ const SupplierCard = memo(function SupplierCard({
   supplier,
   onDelete,
   onEdit,
+  onToggleFavorite,
   config
 }: {
   supplier: Supplier;
   onDelete: (id: string) => void;
   onEdit: (supplier: Supplier) => void;
+  onToggleFavorite?: (id: string) => void;
   config: CardConfig;
 }) {
   const WhatsAppIcon = (ICON_COMPONENTS as any)[config.whatsappIcon] || MessageCircle;
@@ -279,6 +283,18 @@ const SupplierCard = memo(function SupplierCard({
           padding: `${config.padding}px`
         }}
       >
+        {/* Favorite toggle — top-left, always visible */}
+        {onToggleFavorite && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(supplier.id); }}
+            title={supplier.isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+            className="absolute top-6 left-6 z-20 p-2 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 hover:scale-110 transition-all"
+            style={{ color: supplier.isFavorite ? config.iconColor : 'rgba(255,255,255,0.3)' }}
+          >
+            <Heart size={14} fill={supplier.isFavorite ? 'currentColor' : 'none'} />
+          </button>
+        )}
+
         {/* Actions Overlay */}
         <div className="absolute top-6 right-6 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button 
@@ -474,6 +490,7 @@ function dbToSupplier(row: DbSupplier): Supplier {
     instagram: row.instagram,
     logo: row.logo,
     logoUrl: row.logo_url || undefined,
+    isFavorite: row.is_favorite ?? false,
   }
 }
 
@@ -568,6 +585,7 @@ export default function App() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
   const [categoryDeleteAction, setCategoryDeleteAction] = useState<'move' | 'orphan'>('move');
   const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<string>('');
@@ -1592,7 +1610,7 @@ export default function App() {
       }
     } else {
       const tempId = 'temp-' + Date.now();
-      setSuppliers(prev => [{ id: tempId, numericId: 0, ...dbPayload, logoUrl: finalLogoUrl || undefined }, ...prev]);
+      setSuppliers(prev => [{ id: tempId, numericId: 0, ...dbPayload, logoUrl: finalLogoUrl || undefined, isFavorite: false }, ...prev]);
       const { data } = await supabase.from('suppliers').insert(dbPayload).select().single();
       if (data) {
         setSuppliers(prev => prev.map(s => s.id === tempId ? dbToSupplier(data) : s));
@@ -1616,6 +1634,17 @@ export default function App() {
       setSuppliers(prev => prev.filter(s => s.id !== id));
       await supabase.from('suppliers').delete().eq('id', id);
     }
+  }, []);
+
+  const handleToggleFavorite = useCallback(async (id: string) => {
+    let newValue = false;
+    setSuppliers(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      newValue = !s.isFavorite;
+      return { ...s, isFavorite: newValue };
+    }));
+    const { error } = await supabase.from('suppliers').update({ is_favorite: newValue }).eq('id', id);
+    if (error) console.error('[toggle favorite]', error);
   }, []);
 
   const handleEdit = useCallback((supplier: Supplier) => {
@@ -1650,16 +1679,19 @@ export default function App() {
     }
   };
 
+  const favoriteCount = useMemo(() => suppliers.filter(s => s.isFavorite).length, [suppliers]);
+
   const filteredSuppliers = useMemo(() => {
     return suppliers.filter(s => {
       const term = searchTerm.toLowerCase().trim();
-      const matchesSearch = !term || 
-                           s.name.toLowerCase().includes(term) || 
+      const matchesSearch = !term ||
+                           s.name.toLowerCase().includes(term) ||
                            s.numericId.toString().includes(term);
       const matchesCategory = selectedCategory === 'Todos' || s.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      const matchesFavorite = !showOnlyFavorites || s.isFavorite;
+      return matchesSearch && matchesCategory && matchesFavorite;
     }).sort((a, b) => b.numericId - a.numericId);
-  }, [suppliers, searchTerm, selectedCategory]);
+  }, [suppliers, searchTerm, selectedCategory, showOnlyFavorites]);
 
   const loadingScreen = (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#050505' }}>
@@ -1855,10 +1887,24 @@ export default function App() {
           <div className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/5 border border-white/10 text-white/60 text-xs font-semibold tracking-widest uppercase">
             <Store size={14} className="text-gold" />
             <span className="text-white"><span className="text-gold font-bold">{suppliers.length}</span> {suppliers.length === 1 ? 'Fornecedor' : 'Fornecedores'}</span>
-            {selectedCategory !== 'Todos' && filteredSuppliers.length !== suppliers.length && (
+            {selectedCategory !== 'Todos' && filteredSuppliers.length !== suppliers.length && !showOnlyFavorites && (
               <span className="text-white/40 normal-case">· {filteredSuppliers.length} na categoria</span>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowOnlyFavorites(v => !v)}
+            title={showOnlyFavorites ? 'Mostrar todos' : 'Mostrar só favoritos'}
+            className={`flex items-center gap-2 px-5 py-3 rounded-full border transition-all text-xs font-semibold tracking-widest uppercase ${
+              showOnlyFavorites
+                ? 'bg-gold/15 border-gold/50 text-gold'
+                : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20'
+            }`}
+          >
+            <Heart size={14} fill={showOnlyFavorites ? 'currentColor' : 'none'} className={showOnlyFavorites ? 'text-gold' : 'text-gold/70'} />
+            <span><span className="font-bold">{favoriteCount}</span> {favoriteCount === 1 ? 'Favorito' : 'Favoritos'}</span>
+          </button>
 
           <button
             onClick={() => handleExport('copy')}
@@ -2189,6 +2235,7 @@ export default function App() {
                 supplier={supplier}
                 onDelete={handleDelete}
                 onEdit={handleEdit}
+                onToggleFavorite={handleToggleFavorite}
                 config={cardConfig}
               />
             ))}
