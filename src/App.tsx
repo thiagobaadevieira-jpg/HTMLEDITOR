@@ -2228,18 +2228,16 @@ export default function App() {
 
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <AnimatePresence mode="sync">
-            {filteredSuppliers.map((supplier) => (
-              <SupplierCard
-                key={supplier.id}
-                supplier={supplier}
-                onDelete={handleDelete}
-                onEdit={handleEdit}
-                onToggleFavorite={handleToggleFavorite}
-                config={cardConfig}
-              />
-            ))}
-          </AnimatePresence>
+          {filteredSuppliers.map((supplier) => (
+            <SupplierCard
+              key={supplier.id}
+              supplier={supplier}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+              onToggleFavorite={handleToggleFavorite}
+              config={cardConfig}
+            />
+          ))}
         </div>
 
         {/* Empty State */}
