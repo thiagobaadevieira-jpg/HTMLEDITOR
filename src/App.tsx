@@ -1540,8 +1540,8 @@ export default function App() {
   </script>
 
   ${cardConfig.warningText && cardConfig.warningText.trim() ? `
-  <div style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; padding: 12px 16px; background: rgba(15, 15, 15, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid rgba(251, 191, 36, 0.35); box-shadow: 0 -8px 24px rgba(0,0,0,0.5);">
-    <p style="color: rgba(251, 191, 36, 0.9); font-size: 11px; line-height: 1.5; text-align: center; margin: 0 auto; max-width: 720px; letter-spacing: 0.01em;">${cardConfig.warningText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+  <div style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; padding: 12px 16px; background: ${cardConfig.pageBackgroundColor}; border-top: 1px solid ${cardConfig.iconColor}59; box-shadow: 0 -8px 24px rgba(0,0,0,0.5);">
+    <p style="color: ${cardConfig.iconColor}; font-size: 11px; line-height: 1.5; text-align: center; margin: 0 auto; max-width: 720px; letter-spacing: 0.01em;">${cardConfig.warningText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
   </div>
   ` : ''}
 </body>
