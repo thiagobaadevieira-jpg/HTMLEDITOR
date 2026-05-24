@@ -1636,15 +1636,25 @@ export default function App() {
     }
   }, []);
 
+  const suppliersRef = useRef(suppliers);
+  useEffect(() => { suppliersRef.current = suppliers; }, [suppliers]);
+
   const handleToggleFavorite = useCallback(async (id: string) => {
-    let newValue = false;
-    setSuppliers(prev => prev.map(s => {
-      if (s.id !== id) return s;
-      newValue = !s.isFavorite;
-      return { ...s, isFavorite: newValue };
-    }));
+    // Lê o estado mais recente via ref (síncrono, sem depender de batching do React)
+    const current = suppliersRef.current.find(s => s.id === id);
+    if (!current) return;
+    const newValue = !current.isFavorite;
+
+    // Optimistic update
+    setSuppliers(prev => prev.map(s => s.id === id ? { ...s, isFavorite: newValue } : s));
+
+    // Persiste no banco
     const { error } = await supabase.from('suppliers').update({ is_favorite: newValue }).eq('id', id);
-    if (error) console.error('[toggle favorite]', error);
+    if (error) {
+      console.error('[toggle favorite]', error);
+      // Reverte o optimistic se falhou
+      setSuppliers(prev => prev.map(s => s.id === id ? { ...s, isFavorite: !newValue } : s));
+    }
   }, []);
 
   const handleEdit = useCallback((supplier: Supplier) => {
