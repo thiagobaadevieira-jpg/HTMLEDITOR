@@ -223,6 +223,17 @@ const INITIAL_SUPPLIERS: Supplier[] = [
   }
 ];
 
+// Converte "Moda Feminina" → "moda-feminina" (URL-safe, sem acento, lowercase, hifenizado)
+const slugify = (s: string): string =>
+  (s || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+
 const hexToRgba = (hex: string, opacity: number) => {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -576,7 +587,213 @@ function cardConfigToDb(config: CardConfig): Omit<DbCardConfig, 'id' | 'updated_
   }
 }
 
+// ============================================================
+// PublicCatalog: página pública dinâmica em /catalogo e /catalogo/:slug
+// Lê suppliers / categorias / card_config do Supabase em tempo real (sem auth)
+// ============================================================
+function PublicCatalog({ initialSlug }: { initialSlug?: string }) {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [cardConfig, setCardConfig] = useState<CardConfig>(DEFAULT_CARD_CONFIG);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const [sup, cat, cfg] = await Promise.all([
+        supabase.from('suppliers').select('*'),
+        supabase.from('categories').select('name').order('name'),
+        supabase.from('card_config').select('*').single(),
+      ]);
+      if (sup.data) setSuppliers(sup.data.map(dbToSupplier));
+      if (cat.data) setCategories(cat.data.map((c: { name: string }) => c.name));
+      if (cfg.data) setCardConfig(dbToCardConfig(cfg.data));
+      setLoading(false);
+    })();
+  }, []);
+
+  // Aplica o slug da URL na categoria selecionada
+  useEffect(() => {
+    if (!initialSlug || categories.length === 0) return;
+    const match = categories.find(c => slugify(c) === initialSlug);
+    if (match) setSelectedCategory(match);
+  }, [initialSlug, categories]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isOpen]);
+
+  const allCategories = ['Todos', ...categories];
+
+  const filtered = useMemo(() => {
+    return suppliers.filter(s => {
+      const term = searchTerm.toLowerCase().trim();
+      const matchesSearch = !term || s.name.toLowerCase().includes(term) || s.numericId.toString().includes(term);
+      const matchesCategory = selectedCategory === 'Todos' || s.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    }).sort((a, b) => b.numericId - a.numericId);
+  }, [suppliers, searchTerm, selectedCategory]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: cardConfig.pageBackgroundColor }}>
+        <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5 }} className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: `${cardConfig.iconColor}99` }}>
+          Carregando...
+        </motion.div>
+      </div>
+    );
+  }
+
+  const fontClass = cardConfig.fontFamily;
+
+  return (
+    <div className={`min-h-screen ${fontClass}`} style={{ backgroundColor: cardConfig.pageBackgroundColor, paddingBottom: cardConfig.warningText && cardConfig.warningText.trim() ? '140px' : '40px' }}>
+      <main className="w-full max-w-[1800px] mx-auto px-4 sm:px-6 py-8 md:py-12">
+        {/* Search + Category */}
+        <div className="mb-12 flex flex-col md:flex-row gap-3">
+          <div className="relative group grow">
+            <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-6 py-1 focus-within:border-gold/50 transition-all h-full">
+              <Search className="text-white/20 shrink-0" size={20} />
+              <input
+                type="text"
+                placeholder="Pesquisar por nome ou código ID..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                autoComplete="off"
+                className="w-full bg-transparent border-none outline-none py-5 px-4 text-white text-lg placeholder:text-white/10"
+              />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} className="p-2 hover:bg-white/5 rounded-full text-white/20 hover:text-white/40 transition-all shrink-0">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="relative md:w-72 shrink-0" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsOpen(v => !v)}
+              className={`w-full bg-white/5 border rounded-2xl pl-14 py-5 text-white text-sm outline-none transition-all cursor-pointer uppercase tracking-widest h-full text-left ${
+                selectedCategory !== 'Todos' ? 'pr-20' : 'pr-12'
+              } ${isOpen ? 'border-gold/50' : 'border-white/10 hover:border-white/20'}`}
+            >
+              <Folder size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+              <span className="block truncate">{selectedCategory}</span>
+              <ChevronRight size={16} className={`absolute right-5 top-1/2 -translate-y-1/2 text-white/30 transition-transform pointer-events-none ${isOpen ? '-rotate-90' : 'rotate-90'}`} />
+            </button>
+
+            {selectedCategory !== 'Todos' && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setSelectedCategory('Todos'); setIsOpen(false); }}
+                className="absolute right-12 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-white/30 hover:text-white hover:bg-white/10 transition-all z-10"
+              >
+                <X size={14} />
+              </button>
+            )}
+
+            <AnimatePresence>
+              {isOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute top-full left-0 right-0 mt-2 z-50 bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+                >
+                  <div className="max-h-80 overflow-y-auto py-2">
+                    {allCategories.map(cat => {
+                      const isActive = cat === selectedCategory;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => { setSelectedCategory(cat); setIsOpen(false); }}
+                          className={`w-full flex items-center justify-between gap-3 px-5 py-3 text-left text-xs uppercase tracking-widest ${
+                            isActive ? 'bg-gold/10 text-gold' : 'text-white/60 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          <span className="truncate">{cat}</span>
+                          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Header */}
+        <div className="mb-12">
+          <div className="flex items-center gap-4">
+            <h2 className="text-[10px] uppercase font-bold tracking-[0.4em] text-white/30 whitespace-nowrap">Catálogo de Fornecedores</h2>
+            <div className="h-px flex-1" style={{ background: `linear-gradient(to right, ${cardConfig.iconColor}4d, transparent)` }} />
+          </div>
+          {selectedCategory !== 'Todos' && (
+            <div className="text-sm uppercase font-semibold tracking-[0.25em] mt-3 break-words" style={{ color: cardConfig.iconColor }}>
+              {selectedCategory}
+            </div>
+          )}
+        </div>
+
+        {/* Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filtered.map(s => (
+            <SupplierCard key={s.id} supplier={s} onDelete={() => {}} onEdit={() => {}} config={cardConfig} />
+          ))}
+        </div>
+
+        {filtered.length === 0 && (
+          <div className="py-32 text-center">
+            <div className="inline-flex p-6 rounded-full bg-white/5 border border-white/10 mb-6">
+              <Filter style={{ color: `${cardConfig.iconColor}66` }} size={32} />
+            </div>
+            <h3 className="text-xl text-white mb-2">Nenhum fornecedor encontrado</h3>
+            <p className="text-white/30 text-sm">Tente ajustar sua busca ou filtros.</p>
+          </div>
+        )}
+      </main>
+
+      {/* Floating Warning Bar */}
+      {cardConfig.warningText && cardConfig.warningText.trim() && (
+        <div
+          className="fixed left-0 right-0 bottom-0 z-[100] px-4 py-3 backdrop-blur-md"
+          style={{
+            backgroundColor: cardConfig.pageBackgroundColor,
+            borderTop: `1px solid ${cardConfig.iconColor}59`,
+            boxShadow: '0 -8px 24px rgba(0,0,0,0.5)',
+          }}
+        >
+          <p className="text-[11px] leading-relaxed text-center mx-auto max-w-3xl" style={{ color: cardConfig.iconColor }}>
+            {cardConfig.warningText}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
+  // ===== Detecta rota pública /catalogo[/:slug] =====
+  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const publicMatch = path.match(/^\/catalogo(?:\/([^/]+))?\/?$/);
+  if (publicMatch) {
+    return <PublicCatalog initialSlug={publicMatch[1] ? decodeURIComponent(publicMatch[1]) : undefined} />;
+  }
+
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginEmail, setLoginEmail] = useState('');
@@ -613,6 +830,20 @@ export default function App() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ count: number, names: string[], type: 'import' | 'export' } | null>(null);
   const [copiedHtml, setCopiedHtml] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+
+  const handleCopyUrl = async () => {
+    const baseUrl = window.location.origin;
+    const slug = selectedCategory !== 'Todos' ? '/' + slugify(selectedCategory) : '';
+    const url = `${baseUrl}/catalogo${slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2200);
+    } catch (err) {
+      console.error('[copy url]', err);
+    }
+  };
   const [importResult, setImportResult] = useState<{
     imported: number;
     duplicates: number;
@@ -1939,6 +2170,14 @@ export default function App() {
           >
             <Heart size={14} fill={showOnlyFavorites ? 'currentColor' : 'none'} className={showOnlyFavorites ? 'text-gold' : 'text-gold/70'} />
             <span><span className="font-bold">{favoriteCount}</span> {favoriteCount === 1 ? 'Favorito' : 'Favoritos'}</span>
+          </button>
+
+          <button
+            onClick={handleCopyUrl}
+            title={`Copiar URL pública${selectedCategory !== 'Todos' ? ' (categoria ' + selectedCategory + ')' : ''}`}
+            className="flex items-center gap-2 px-6 py-3 rounded-full border border-gold/40 text-gold text-xs font-semibold tracking-widest uppercase hover:bg-gold/10 transition-all"
+          >
+            {copiedUrl ? <><Check size={16} /> URL Copiada!</> : <><Link size={16} /> Copiar URL</>}
           </button>
 
           <button
