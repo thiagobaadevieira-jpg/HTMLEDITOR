@@ -2151,19 +2151,10 @@ export default function App() {
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setSelectedCategory(selectedCategory === 'Favoritos' ? 'Todos' : 'Favoritos')}
-            title={selectedCategory === 'Favoritos' ? 'Mostrar todos' : 'Filtrar só favoritos'}
-            className={`flex items-center gap-2 px-5 py-3 rounded-full border transition-all text-xs font-semibold tracking-widest uppercase ${
-              selectedCategory === 'Favoritos'
-                ? 'bg-gold/15 border-gold/50 text-gold'
-                : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20'
-            }`}
-          >
-            <Heart size={14} fill={selectedCategory === 'Favoritos' ? 'currentColor' : 'none'} className={selectedCategory === 'Favoritos' ? 'text-gold' : 'text-gold/70'} />
-            <span><span className="font-bold">{favoriteCount}</span> {favoriteCount === 1 ? 'Favorito' : 'Favoritos'}</span>
-          </button>
+          <div className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/5 border border-white/10 text-white/60 text-xs font-semibold tracking-widest uppercase">
+            <Heart size={14} className="text-gold/70" />
+            <span className="text-white"><span className="text-gold font-bold">{favoriteCount}</span> {favoriteCount === 1 ? 'Favorito' : 'Favoritos'}</span>
+          </div>
 
           <button
             onClick={handleCopyUrl}
