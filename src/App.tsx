@@ -621,12 +621,16 @@ function PublicCatalog({ initialSlug }: { initialSlug?: string }) {
     })();
   }, []);
 
-  // Aplica o slug da URL na categoria selecionada
+  // Detecta se a URL é a página de favoritos
+  const isFavoritesView = initialSlug === 'favoritos';
+
+  // Aplica o slug da URL na categoria selecionada (ignora se for favoritos)
   useEffect(() => {
+    if (isFavoritesView) return;
     if (!initialSlug || categories.length === 0) return;
     const match = categories.find(c => slugify(c) === initialSlug);
     if (match) setSelectedCategory(match);
-  }, [initialSlug, categories]);
+  }, [initialSlug, categories, isFavoritesView]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -645,10 +649,11 @@ function PublicCatalog({ initialSlug }: { initialSlug?: string }) {
     return suppliers.filter(s => {
       const term = searchTerm.toLowerCase().trim();
       const matchesSearch = !term || s.name.toLowerCase().includes(term) || s.numericId.toString().includes(term);
-      const matchesCategory = selectedCategory === 'Todos' || s.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      const matchesCategory = isFavoritesView ? true : (selectedCategory === 'Todos' || s.category === selectedCategory);
+      const matchesFavorite = isFavoritesView ? s.isFavorite : true;
+      return matchesSearch && matchesCategory && matchesFavorite;
     }).sort((a, b) => b.numericId - a.numericId);
-  }, [suppliers, searchTerm, selectedCategory]);
+  }, [suppliers, searchTerm, selectedCategory, isFavoritesView]);
 
   if (loading) {
     return (
@@ -690,10 +695,17 @@ function PublicCatalog({ initialSlug }: { initialSlug?: string }) {
         {/* Header */}
         <div className="mb-12">
           <div className="flex items-center gap-4">
-            <h2 className="text-[10px] uppercase font-bold tracking-[0.4em] text-white/30 whitespace-nowrap">Catálogo de Fornecedores</h2>
+            <h2 className="text-[10px] uppercase font-bold tracking-[0.4em] text-white/30 whitespace-nowrap">
+              {isFavoritesView ? 'Lista de Favoritos' : 'Catálogo de Fornecedores'}
+            </h2>
             <div className="h-px flex-1" style={{ background: `linear-gradient(to right, ${cardConfig.iconColor}4d, transparent)` }} />
           </div>
-          {selectedCategory !== 'Todos' && (
+          {isFavoritesView ? (
+            <div className="flex items-center gap-2 text-sm uppercase font-semibold tracking-[0.25em] mt-3" style={{ color: cardConfig.iconColor }}>
+              <Heart size={16} fill="currentColor" />
+              Favoritos
+            </div>
+          ) : selectedCategory !== 'Todos' && (
             <div className="text-sm uppercase font-semibold tracking-[0.25em] mt-3 break-words" style={{ color: cardConfig.iconColor }}>
               {selectedCategory}
             </div>
@@ -710,10 +722,16 @@ function PublicCatalog({ initialSlug }: { initialSlug?: string }) {
         {filtered.length === 0 && (
           <div className="py-32 text-center">
             <div className="inline-flex p-6 rounded-full bg-white/5 border border-white/10 mb-6">
-              <Filter style={{ color: `${cardConfig.iconColor}66` }} size={32} />
+              {isFavoritesView
+                ? <Heart style={{ color: `${cardConfig.iconColor}66` }} size={32} />
+                : <Filter style={{ color: `${cardConfig.iconColor}66` }} size={32} />}
             </div>
-            <h3 className="text-xl text-white mb-2">Nenhum fornecedor encontrado</h3>
-            <p className="text-white/30 text-sm">Tente ajustar sua busca ou filtros.</p>
+            <h3 className="text-xl text-white mb-2">
+              {isFavoritesView ? 'Nenhum favorito ainda' : 'Nenhum fornecedor encontrado'}
+            </h3>
+            <p className="text-white/30 text-sm">
+              {isFavoritesView ? 'O administrador ainda não marcou nenhum fornecedor como favorito.' : 'Tente ajustar sua busca.'}
+            </p>
           </div>
         )}
       </main>
@@ -786,7 +804,12 @@ export default function App() {
   const handleCopyUrl = async () => {
     try {
       const baseUrl = window.location.origin;
-      const slug = selectedCategory !== 'Todos' ? '/' + slugify(selectedCategory) : '';
+      // Prioridade: filtro de favoritos > categoria selecionada > catálogo completo
+      const slug = showOnlyFavorites
+        ? '/favoritos'
+        : selectedCategory !== 'Todos'
+          ? '/' + slugify(selectedCategory)
+          : '';
       const url = `${baseUrl}/catalogo${slug}`;
       console.log('[copy url] copiando:', url);
 
