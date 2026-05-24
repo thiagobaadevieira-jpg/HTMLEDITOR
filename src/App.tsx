@@ -643,7 +643,7 @@ function PublicCatalog({ initialSlug }: { initialSlug?: string }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen]);
 
-  const allCategories = ['Todos', ...categories];
+  const allCategories = ['Todos', 'Favoritos', ...categories];
 
   const filtered = useMemo(() => {
     return suppliers.filter(s => {
@@ -787,7 +787,6 @@ export default function App() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
-  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
   const [categoryDeleteAction, setCategoryDeleteAction] = useState<'move' | 'orphan'>('move');
   const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<string>('');
@@ -804,12 +803,11 @@ export default function App() {
   const handleCopyUrl = async () => {
     try {
       const baseUrl = window.location.origin;
-      // Prioridade: filtro de favoritos > categoria selecionada > catálogo completo
-      const slug = showOnlyFavorites
-        ? '/favoritos'
-        : selectedCategory !== 'Todos'
-          ? '/' + slugify(selectedCategory)
-          : '';
+      const slug = selectedCategory === 'Todos'
+        ? ''
+        : selectedCategory === 'Favoritos'
+          ? '/favoritos'
+          : '/' + slugify(selectedCategory);
       const url = `${baseUrl}/catalogo${slug}`;
       console.log('[copy url] copiando:', url);
 
@@ -1011,7 +1009,7 @@ export default function App() {
     if (bulkImageInputRef.current) bulkImageInputRef.current.value = '';
   };
 
-  const allCategories = ['Todos', ...categories];
+  const allCategories = ['Todos', 'Favoritos', ...categories];
 
   // Normaliza nome de categoria — remove acentos, espaços extras, lowercase
   // (usado só para comparar; o nome salvo mantém o texto original do usuário)
@@ -1944,11 +1942,15 @@ export default function App() {
       const matchesSearch = !term ||
                            s.name.toLowerCase().includes(term) ||
                            s.numericId.toString().includes(term);
-      const matchesCategory = selectedCategory === 'Todos' || s.category === selectedCategory;
-      const matchesFavorite = !showOnlyFavorites || s.isFavorite;
-      return matchesSearch && matchesCategory && matchesFavorite;
+      // "Favoritos" é uma categoria virtual — filtra por isFavorite em vez de category
+      const matchesCategory = selectedCategory === 'Todos'
+        ? true
+        : selectedCategory === 'Favoritos'
+          ? s.isFavorite
+          : s.category === selectedCategory;
+      return matchesSearch && matchesCategory;
     }).sort((a, b) => b.numericId - a.numericId);
-  }, [suppliers, searchTerm, selectedCategory, showOnlyFavorites]);
+  }, [suppliers, searchTerm, selectedCategory]);
 
   const loadingScreen = (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#050505' }}>
@@ -2144,22 +2146,22 @@ export default function App() {
           <div className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/5 border border-white/10 text-white/60 text-xs font-semibold tracking-widest uppercase">
             <Store size={14} className="text-gold" />
             <span className="text-white"><span className="text-gold font-bold">{suppliers.length}</span> {suppliers.length === 1 ? 'Fornecedor' : 'Fornecedores'}</span>
-            {selectedCategory !== 'Todos' && filteredSuppliers.length !== suppliers.length && !showOnlyFavorites && (
+            {selectedCategory !== 'Todos' && selectedCategory !== 'Favoritos' && filteredSuppliers.length !== suppliers.length && (
               <span className="text-white/40 normal-case">· {filteredSuppliers.length} na categoria</span>
             )}
           </div>
 
           <button
             type="button"
-            onClick={() => setShowOnlyFavorites(v => !v)}
-            title={showOnlyFavorites ? 'Mostrar todos' : 'Mostrar só favoritos'}
+            onClick={() => setSelectedCategory(selectedCategory === 'Favoritos' ? 'Todos' : 'Favoritos')}
+            title={selectedCategory === 'Favoritos' ? 'Mostrar todos' : 'Filtrar só favoritos'}
             className={`flex items-center gap-2 px-5 py-3 rounded-full border transition-all text-xs font-semibold tracking-widest uppercase ${
-              showOnlyFavorites
+              selectedCategory === 'Favoritos'
                 ? 'bg-gold/15 border-gold/50 text-gold'
                 : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20'
             }`}
           >
-            <Heart size={14} fill={showOnlyFavorites ? 'currentColor' : 'none'} className={showOnlyFavorites ? 'text-gold' : 'text-gold/70'} />
+            <Heart size={14} fill={selectedCategory === 'Favoritos' ? 'currentColor' : 'none'} className={selectedCategory === 'Favoritos' ? 'text-gold' : 'text-gold/70'} />
             <span><span className="font-bold">{favoriteCount}</span> {favoriteCount === 1 ? 'Favorito' : 'Favoritos'}</span>
           </button>
 
@@ -2442,7 +2444,8 @@ export default function App() {
                   <div className="max-h-80 overflow-y-auto py-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent">
                     {allCategories.map((cat) => {
                       const isActive = cat === selectedCategory;
-                      const isTodos = cat === 'Todos';
+                      const isVirtual = cat === 'Todos' || cat === 'Favoritos';
+                      const isFavorites = cat === 'Favoritos';
                       return (
                         <div
                           key={cat}
@@ -2456,12 +2459,13 @@ export default function App() {
                               setSelectedCategory(cat);
                               setIsCategoryDropdownOpen(false);
                             }}
-                            className="flex-1 flex items-center justify-between gap-3 px-5 py-3 text-left text-xs uppercase tracking-widest min-w-0"
+                            className="flex-1 flex items-center gap-2 px-5 py-3 text-left text-xs uppercase tracking-widest min-w-0"
                           >
-                            <span className="truncate">{cat}</span>
+                            {isFavorites && <Heart size={12} fill={isActive ? 'currentColor' : 'none'} className="shrink-0" />}
+                            <span className="truncate flex-1">{cat}{isFavorites && favoriteCount > 0 ? ` (${favoriteCount})` : ''}</span>
                             {isActive && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
                           </button>
-                          {!isTodos && (
+                          {!isVirtual && (
                             <>
                               <button
                                 type="button"
