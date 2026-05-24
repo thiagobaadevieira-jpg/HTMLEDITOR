@@ -224,15 +224,21 @@ const INITIAL_SUPPLIERS: Supplier[] = [
 ];
 
 // Converte "Moda Feminina" → "moda-feminina" (URL-safe, sem acento, lowercase, hifenizado)
-const slugify = (s: string): string =>
-  (s || '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
+const slugify = (s: string): string => {
+  if (!s) return '';
+  try {
+    return s
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  } catch {
+    return s.toLowerCase().replace(/\s+/g, '-');
+  }
+};
 
 const hexToRgba = (hex: string, opacity: number) => {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -833,15 +839,32 @@ export default function App() {
   const [copiedUrl, setCopiedUrl] = useState(false);
 
   const handleCopyUrl = async () => {
-    const baseUrl = window.location.origin;
-    const slug = selectedCategory !== 'Todos' ? '/' + slugify(selectedCategory) : '';
-    const url = `${baseUrl}/catalogo${slug}`;
     try {
-      await navigator.clipboard.writeText(url);
+      const baseUrl = window.location.origin;
+      const slug = selectedCategory !== 'Todos' ? '/' + slugify(selectedCategory) : '';
+      const url = `${baseUrl}/catalogo${slug}`;
+      console.log('[copy url] copiando:', url);
+
+      // Tenta clipboard API moderna
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // Fallback: textarea + execCommand
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+
       setCopiedUrl(true);
       setTimeout(() => setCopiedUrl(false), 2200);
     } catch (err) {
-      console.error('[copy url]', err);
+      console.error('[copy url] erro:', err);
+      alert('Não foi possível copiar. Veja o console (F12) para detalhes.');
     }
   };
   const [importResult, setImportResult] = useState<{
