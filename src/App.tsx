@@ -696,7 +696,7 @@ function PublicCatalog({ initialSlug }: { initialSlug?: string }) {
         <div className="mb-12">
           <div className="flex items-center gap-4">
             <h2 className="text-[10px] uppercase font-bold tracking-[0.4em] text-white/30 whitespace-nowrap">
-              {isFavoritesView ? 'Lista de Favoritos' : 'Catálogo de Fornecedores'}
+              Catálogo de Fornecedores
             </h2>
             <div className="h-px flex-1" style={{ background: `linear-gradient(to right, ${cardConfig.iconColor}4d, transparent)` }} />
           </div>
