@@ -665,10 +665,10 @@ function PublicCatalog({ initialSlug }: { initialSlug?: string }) {
   return (
     <div className={`min-h-screen ${fontClass}`} style={{ backgroundColor: cardConfig.pageBackgroundColor, paddingBottom: cardConfig.warningText && cardConfig.warningText.trim() ? '140px' : '40px' }}>
       <main className="w-full max-w-[1800px] mx-auto px-4 sm:px-6 py-8 md:py-12">
-        {/* Search + Category */}
-        <div className="mb-12 flex flex-col md:flex-row gap-3">
-          <div className="relative group grow">
-            <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-6 py-1 focus-within:border-gold/50 transition-all h-full">
+        {/* Search bar (sem dropdown de categoria — fica fixa pela URL) */}
+        <div className="mb-12">
+          <div className="relative group">
+            <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-6 py-1 focus-within:border-gold/50 transition-all">
               <Search className="text-white/20 shrink-0" size={20} />
               <input
                 type="text"
@@ -684,61 +684,6 @@ function PublicCatalog({ initialSlug }: { initialSlug?: string }) {
                 </button>
               )}
             </div>
-          </div>
-
-          <div className="relative md:w-72 shrink-0" ref={dropdownRef}>
-            <button
-              type="button"
-              onClick={() => setIsOpen(v => !v)}
-              className={`w-full bg-white/5 border rounded-2xl pl-14 py-5 text-white text-sm outline-none transition-all cursor-pointer uppercase tracking-widest h-full text-left ${
-                selectedCategory !== 'Todos' ? 'pr-20' : 'pr-12'
-              } ${isOpen ? 'border-gold/50' : 'border-white/10 hover:border-white/20'}`}
-            >
-              <Folder size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
-              <span className="block truncate">{selectedCategory}</span>
-              <ChevronRight size={16} className={`absolute right-5 top-1/2 -translate-y-1/2 text-white/30 transition-transform pointer-events-none ${isOpen ? '-rotate-90' : 'rotate-90'}`} />
-            </button>
-
-            {selectedCategory !== 'Todos' && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setSelectedCategory('Todos'); setIsOpen(false); }}
-                className="absolute right-12 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-white/30 hover:text-white hover:bg-white/10 transition-all z-10"
-              >
-                <X size={14} />
-              </button>
-            )}
-
-            <AnimatePresence>
-              {isOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute top-full left-0 right-0 mt-2 z-50 bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
-                >
-                  <div className="max-h-80 overflow-y-auto py-2">
-                    {allCategories.map(cat => {
-                      const isActive = cat === selectedCategory;
-                      return (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => { setSelectedCategory(cat); setIsOpen(false); }}
-                          className={`w-full flex items-center justify-between gap-3 px-5 py-3 text-left text-xs uppercase tracking-widest ${
-                            isActive ? 'bg-gold/10 text-gold' : 'text-white/60 hover:bg-white/5 hover:text-white'
-                          }`}
-                        >
-                          <span className="truncate">{cat}</span>
-                          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </div>
 
