@@ -6,6 +6,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback, memo, startTransition } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 import { supabase, uploadLogo, dataUrlToStorageUrl, type DbSupplier, type DbCardConfig } from './lib/supabase';
 import { 
   Instagram, 
@@ -1266,6 +1267,102 @@ export default function App() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Fornecedores");
     XLSX.writeFile(wb, `fornecedores-${selectedCategory.toLowerCase()}.xlsx`);
+  };
+
+  // Exporta TODOS os campos (incluindo URL da foto, código, favorito, data)
+  const handleExcelExportComplete = () => {
+    const exportData = filteredSuppliers.map(s => ({
+      'Código': s.numericId,
+      'Nome da Loja': s.name,
+      '@ Handle': s.handle,
+      'Instagram User': s.instagram,
+      'Link Instagram': s.instagram ? `https://www.instagram.com/${s.instagram}/` : '',
+      'WhatsApp': s.whatsapp,
+      'Link WhatsApp': s.whatsapp ? `https://wa.me/${s.whatsapp}` : '',
+      'Endereço': s.address,
+      'Categoria': s.category,
+      'URL da Foto': s.logoUrl || '',
+      'Favorito': s.isFavorite ? 'Sim' : 'Não',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    // Largura das colunas (melhor leitura)
+    ws['!cols'] = [
+      { wch: 8 },   // Código
+      { wch: 30 },  // Nome da Loja
+      { wch: 25 },  // @ Handle
+      { wch: 25 },  // Instagram User
+      { wch: 40 },  // Link Instagram
+      { wch: 18 },  // WhatsApp
+      { wch: 35 },  // Link WhatsApp
+      { wch: 50 },  // Endereço
+      { wch: 25 },  // Categoria
+      { wch: 60 },  // URL da Foto
+      { wch: 10 },  // Favorito
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Fornecedores Completo");
+    const filename = `fornecedores-completo-${selectedCategory.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, filename);
+  };
+
+  const [downloadingPhotos, setDownloadingPhotos] = useState(false);
+  const [photoProgress, setPhotoProgress] = useState({ done: 0, total: 0 });
+
+  // Baixa todas as fotos como ZIP
+  const handleDownloadPhotos = async () => {
+    if (downloadingPhotos) return;
+    const withPhotos = filteredSuppliers.filter(s => s.logoUrl && s.logoUrl.startsWith('http'));
+    if (withPhotos.length === 0) {
+      alert('Nenhum fornecedor tem foto cadastrada.');
+      return;
+    }
+    setDownloadingPhotos(true);
+    setPhotoProgress({ done: 0, total: withPhotos.length });
+
+    const zip = new JSZip();
+    const folder = zip.folder('fotos');
+    if (!folder) { setDownloadingPhotos(false); return; }
+
+    let done = 0;
+    for (const s of withPhotos) {
+      try {
+        const res = await fetch(s.logoUrl!);
+        if (!res.ok) throw new Error('fetch failed');
+        const blob = await res.blob();
+        // Determina extensão pelo Content-Type ou URL
+        const contentType = res.headers.get('content-type') || '';
+        let ext = 'jpg';
+        if (contentType.includes('png')) ext = 'png';
+        else if (contentType.includes('webp')) ext = 'webp';
+        else if (contentType.includes('gif')) ext = 'gif';
+        else if (s.logoUrl!.match(/\.(\w+)(\?|$)/)) ext = s.logoUrl!.match(/\.(\w+)(\?|$)/)![1];
+
+        const slug = slugify(s.name) || 'sem-nome';
+        const filename = `${s.numericId}-${slug}.${ext}`;
+        folder.file(filename, blob);
+      } catch (err) {
+        console.error('[download photo]', s.numericId, s.name, err);
+      }
+      done++;
+      setPhotoProgress({ done, total: withPhotos.length });
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+      // Pode usar pra mostrar progresso da compressão se quiser
+    });
+
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fotos-fornecedores-${new Date().toISOString().slice(0, 10)}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setDownloadingPhotos(false);
+    setPhotoProgress({ done: 0, total: 0 });
   };
 
   const handleDownloadExample = () => {
@@ -2662,6 +2759,47 @@ export default function App() {
           {filteredSuppliers.length === 0 && (
             <p className="mt-3 text-[10px] uppercase tracking-widest text-white/20">Adicione fornecedores para habilitar a exportação</p>
           )}
+        </section>
+
+        {/* Exportação para migração / sistemas externos */}
+        <section>
+          <h3 className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">Migrar para Outro Sistema</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={handleExcelExportComplete}
+              disabled={filteredSuppliers.length === 0}
+              className="group flex items-center gap-4 p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-gold/30 hover:bg-white/[0.07] transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <div className="p-3 rounded-xl bg-gold/10 text-gold group-hover:bg-gold/20 transition-colors">
+                <Package size={24} />
+              </div>
+              <div>
+                <div className="text-white text-sm font-bold uppercase tracking-widest mb-1">Exportar Excel Completo</div>
+                <div className="text-white/40 text-xs">Planilha .xlsx com TODOS os campos: código, nome, links, fotos URL, favorito, etc.</div>
+              </div>
+            </button>
+
+            <button
+              onClick={handleDownloadPhotos}
+              disabled={filteredSuppliers.length === 0 || downloadingPhotos}
+              className="group flex items-center gap-4 p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-gold/30 hover:bg-white/[0.07] transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <div className="p-3 rounded-xl bg-gold/10 text-gold group-hover:bg-gold/20 transition-colors">
+                <ImageIcon size={24} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-white text-sm font-bold uppercase tracking-widest mb-1 truncate">
+                  {downloadingPhotos
+                    ? `Baixando ${photoProgress.done}/${photoProgress.total}…`
+                    : 'Baixar Fotos (ZIP)'}
+                </div>
+                <div className="text-white/40 text-xs">Todas as fotos em um .zip, nomeadas como [código]-[nome].jpg</div>
+              </div>
+            </button>
+          </div>
+          <p className="mt-3 text-[10px] uppercase tracking-widest text-white/30">
+            Use os dois juntos no outro sistema: importa a planilha e descompacta as fotos vinculando pelo código.
+          </p>
         </section>
       </div>
     )}
